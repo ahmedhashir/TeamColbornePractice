@@ -1,30 +1,55 @@
 ---
-title: "Colborne Markdown"
-author: "David Murray"
-date: '2017-06-28'
+title: "MMA 865 Final Project"
 output: github_document
+date: "Summer 2017"
+author: "Team Colborne"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r libraries}
+library(tidyverse)
+library(data.table)
+library(caret)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+## Load the data
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+in_path = '/global/project/queens-mma/scene-csv/sample03/clean/'
+
+# Note: read_csv() is a the preferred way to read in a CSV file in the tidyverse.
+# Howewever, fread is 10 times faster. And why should *I* wait?
+
+scene_mbr_dim <-fread(paste(in_path, 'scene_mbr_dim.csv', sep=""), sep=",")
+scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
+scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
+
+#Rename because the current tables take too long to type out each time
+member<-scene_mbr_dim
+acct<-scene_mbr_acct_dim
+pt<-scene_pt_fact
+
+# Note: you probably won't need these tables, but in case you do, here they are:
+scene_pt_tp_dim <-read_csv(paste(in_path, 'scene_pt_tp_dim.csv', sep=""))
+iwd_time <-read_csv(paste(in_path, 'iwd_time.csv', sep=""))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Note: the above loads the "small" data set. To load the full dataset instead, change the `in_path` to say "full" instead of `sample03`.
+
+View the first few rows of some of the tables:
+
+```{r}
+head(scene_pt_tp_dim, n=10)
+head(scene_mbr_dim, n=10)
+```
+
+
+## Analysis
+
+Go forth with your analysis! Use `dplyr` to manipulate the data, `ggplot2` to plot/graph, `rpart` (or similar) for building classifiers, `cluster` for clustering, and all your other training. Good luck, we're all counting on you.
