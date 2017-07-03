@@ -1,0 +1,65 @@
+---
+title: "MMA 865 Final Project"
+output: html_document
+date: "Summer 2017"
+author: "My Team Name"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries}
+library(tidyverse)
+library(sparklyr)
+```
+
+
+
+Connect to the spark cluster.
+
+```{r}
+config <- spark_config() 
+config$'sparklyr.shell.executor-memory' <- "20g" 
+config$'sparklyr.shell.driver-memory' <- "10g" 
+config$spark.yarn.am.memory <- "15g"
+
+# Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
+
+sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+```
+
+# Read in the data
+
+I've put a copy of all the files on HDFS, so we can load the data directory from there.
+(Rather than loading it into R's memory and using copy_to() to move it into Hadoop's memory.)
+
+Now, the `in_path` below does not point a directory on the local filesystem, but rather to a directory on HDFS.
+
+I've created the directories in HDFS so that they have the same structure as the local filesystem, to avoid unnecessary confusion.
+
+```{r}
+in_path = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
+
+scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+
+scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
+
+scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+
+
+```
+
+## Analyze
+
+Now, go forth and use `sparklyr`. For manipulating data, use the same `dplyr` commands (e.g., `filter`, 'group_by`, etc.) that you're used to, and spark will do the right thing. (That is, spark will translate the `dplyr` command into a series of MapReduce jobs under the hood!) For machine learning, use the `sparklyr` `ml_*` commands, e.g., `ml_decision_tree`, `ml_naive_bayes`, etc.
+
+Good luck, grasshopper.
+
+
+## Disconnect from Spark
+
+```{r}
+spark_disconnect(sc)
+```
