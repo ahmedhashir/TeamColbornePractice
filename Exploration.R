@@ -1,6 +1,8 @@
 library(tidyverse)
 library(lubridate)
 
+#change for git
+
 #Set folder path
 in_path = '/global/project/queens-mma/scene-csv/sample03/clean/'
 
