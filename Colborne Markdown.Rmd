@@ -14,8 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(data.table)
 library(caret)
-
 library(dplyr)
+
 
 ```
 
@@ -37,10 +37,40 @@ member<-scene_mbr_dim
 acct<-scene_mbr_acct_dim
 pt<-scene_pt_fact
 
-males<-member %>%
-  filter(brth_dt==1993, psnl_post_cd=="M4G", gndr_desc=="Male")
-str(males)
-head(males)
+# Now lets do some Data Exploration
+#First filter pt for non-outlier points
+domain<-2500
+
+clean_pt<-pt %>%
+  filter(pt>-domain,
+         pt<domain)
+  hist(clean_pt$pt)
+  
+clean_txn <-pt %>%
+  filter(txn_amt>0,
+         txn_amt<6000)
+
+#Some Data Viz Code
+ggplot(clean_txn, aes(x=txn_amt, fill=anul_clndr_code))+geom_histogram(bins=30)
+
+nrow(clean_txn)
+nrow(pt)
+#Erased 6.8 million transcations with less than 0
+#This cleaning left 59.4% of the rows left (most of them had negative transactions)
+pos_txn <-pt %>%
+  filter(txn_amt>0)
+nrow(pos_txn)
+#9.9843 million rows that are positive
+
+btwn_txn <-pos_txn %>%
+  filter(txn_amt<6000)
+
+nrow(btwn_txn)
+#9.9686 million rows between domain
+
+
+neg_txn<-pt[txn_amt<0,]
+View(neg_txn)
 
 # Note: you probably won't need these tables, but in case you do, here they are:
 scene_pt_tp_dim <-read_csv(paste(in_path, 'scene_pt_tp_dim.csv', sep=""))
@@ -56,7 +86,19 @@ head(scene_pt_tp_dim, n=10)
 head(scene_mbr_dim, n=10)
 ```
 
+```{r}
 
-## Analysis
+??sparkml
+
+
+
+```
+
+
+## Skeleton
+
+#Milestone 1
+
+#Tables/data to be used, 
 
 Go forth with your analysis! Use `dplyr` to manipulate the data, `ggplot2` to plot/graph, `rpart` (or similar) for building classifiers, `cluster` for clustering, and all your other training. Good luck, we're all counting on you.
