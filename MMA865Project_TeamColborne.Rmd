@@ -69,7 +69,7 @@ Rows and Columns of scene_pt_fact
 dim(scene_pt_fact)  
 colnames(scene_pt_fact)
 ```
-## Combine Data
+## Combine Data i.e. join files
 ```{r}
 
 scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")
@@ -86,6 +86,8 @@ dim(scene_data)
 Now, go forth and use `sparklyr`. For manipulating data, use the same `dplyr` commands (e.g., `filter`, 'group_by`, etc.) that you're used to, and spark will do the right thing. (That is, spark will translate the `dplyr` command into a series of MapReduce jobs under the hood!) For machine learning, use the `sparklyr` `ml_*` commands, e.g., `ml_decision_tree`, `ml_naive_bayes`, etc.
 
 Good luck, grasshopper.
+
+##Taking sample of sample
 ```{r}
 scene_data_small <- sample_frac(scene_data, 0.01)
 #Taking sample of sample
@@ -93,8 +95,10 @@ dim(scene_data_small)
 scene_data_r <- collect(scene_data_small)
 str(scene_data_r)
 colnames(scene_data_r)
+```
 
-#Feature Engineering
+##Feature Engineering
+```{r}
 
 #Converting Characters variables into Factors
 
