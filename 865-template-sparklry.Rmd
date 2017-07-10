@@ -48,6 +48,34 @@ scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(i
 
 scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
 
+head(scene_mbr_dim, n=10)
+
+```
+Rows and Columns of scene_mbr_dim
+```{r}
+dim(scene_mbr_dim)  
+```
+
+Rows and Columns of scene_mbr_acct_dim
+```{r}
+dim(scene_mbr_acct_dim)  
+```
+
+Rows and Columns of scene_pt_fact
+```{r}
+dim(scene_pt_fact)  
+colnames(scene_pt_fact)
+```
+## Combine Data
+```{r}
+
+scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")
+head(scene_data)
+colnames(scene_data)
+summary(scene_data)
+dim(scene_data)
+
+#spark_write_parquet(scene_data, "hdfs:///user/sa100006/scene-csv/sample03/clean/")
 
 ```
 
@@ -57,6 +85,136 @@ Now, go forth and use `sparklyr`. For manipulating data, use the same `dplyr` co
 
 Good luck, grasshopper.
 
+
+```{r}
+scene_data_small <- sample_frac(scene_data, 0.01)
+#Taking sample of sample
+dim(scene_data_small)
+scene_data_r <- collect(scene_data_small)
+str(scene_data_r)
+colnames(scene_data_r)
+
+#Feature Engineering
+
+#Converting Characters variables into Factors
+
+#Definition of Month Factor, it's an Ordinal factor therefore sequence matter
+month_levels <- c(
+  "January", "February", "March", "April", "May", "June", 
+  "July", "August", "September", "October", "November", "December"
+)
+
+#Postal Code Factor
+scene_data_r$psnl_post_cd_f <- as.factor(scene_data_r$psnl_post_cd)
+sort(unique(scene_data_r$psnl_post_cd_f))
+
+#Province Factor
+scene_data_r$psnl_prov_state_cd_f <- as.factor(scene_data_r$psnl_prov_state_cd)
+sort(unique(scene_data_r$psnl_prov_state_cd_f))
+
+#City Factor
+scene_data_r$psnl_city_f <- as.factor(scene_data_r$psnl_city)
+sort(unique(scene_data_r$psnl_city_f))
+
+#Suspended Flag Factor
+scene_data_r$suspended_f_f <- as.factor(scene_data_r$suspended_f)
+sort(unique(scene_data_r$suspended_f_f))
+count(scene_data_r,suspended_f)
+
+#Gender Factor
+scene_data_r$gndr_desc_f <- as.factor(scene_data_r$gndr_desc)
+sort(unique(scene_data_r$gndr_desc_f))
+count(scene_data_r,gndr_desc_f)
+
+#Preferred Location Factor
+scene_data_r$prefrd_loctn_desc_f <- as.factor(scene_data_r$prefrd_loctn_desc)
+sort(unique(scene_data_r$prefrd_loctn_desc_f))
+count(scene_data_r,prefrd_loctn_desc_f)
+
+#Email preference Factor
+scene_data_r$email_prefnc_desc_f <- as.factor(scene_data_r$email_prefnc_desc)
+sort(unique(scene_data_r$email_prefnc_desc_f))
+count(scene_data_r,email_prefnc_desc_f)
+
+#Education Level Factor
+scene_data_r$ed_lvl_desc_f <- as.factor(scene_data_r$ed_lvl_desc)
+sort(unique(scene_data_r$ed_lvl_desc_f))
+count(scene_data_r,ed_lvl_desc_f)
+
+#Preferred Time Show Factor
+#Definition of Time Factor, it's an Ordinal factor therefore sequence matter
+time_level <- c("1:00pm", "2:00pm", "3:00pm", "4:00pm", "5:00pm", "6:00pm", "7:00pm", "8:00pm", "9:00pm", "10:00pm", "11:00pm", "12:00am")
+
+scene_data_r$prefrd_show_tm_desc[scene_data_r$prefrd_show_tm_desc == "12 midnight" ] <- "12:00am" 
+
+scene_data_r$prefrd_show_tm_desc_f <- factor(scene_data_r$prefrd_show_tm_desc, levels = time_level)
+sort(unique(scene_data_r$prefrd_show_tm_desc_f))
+count(scene_data_r,prefrd_show_tm_desc_f)
+
+#Number of People in HH Factor
+#Definition of people in HH factor, it's an Ordinal factor therefore sequence matter
+hh_member_level = c("1","2","3","4","5","6+")
+scene_data_r$num_of_hh_pple_desc_f <- factor(scene_data_r$num_of_hh_pple_desc, levels = hh_member_level)
+sort(unique(scene_data_r$num_of_hh_pple_desc_f))
+count(scene_data_r,num_of_hh_pple_desc_f)
+
+#Movie Watching Frequency Factor
+#Movie Watching Frequency factor, it's an Ordinal factor therefore sequence matter
+movie_frequency_level = c("<2","3-6","7-10","11-20","20+")
+scene_data_r$movie_gng_frq_ref_desc_f <- factor(scene_data_r$movie_gng_frq_ref_desc, levels = movie_frequency_level)
+sort(unique(scene_data_r$movie_gng_frq_ref_desc_f))
+count(scene_data_r,num_of_hh_pple_desc_f)
+
+#Marital Status Factor
+scene_data_r$mrtl_stat_desc_f <- as.factor(scene_data_r$mrtl_stat_desc)
+sort(unique(scene_data_r$mrtl_stat_desc_f))
+count(scene_data_r,mrtl_stat_desc_f)
+
+#Language Factor
+scene_data_r$lang_desc_f <- as.factor(scene_data_r$lang_desc)
+sort(unique(scene_data_r$lang_desc_f))
+count(scene_data_r,lang_desc_f)
+
+#CD Factor
+scene_data_r$cd_f <- as.factor(scene_data_r$cd)
+sort(unique(scene_data_r$cd_f))
+count(scene_data_r,cd_f)
+
+#NM Factor
+scene_data_r$nm_f <- as.factor(scene_data_r$nm)
+sort(unique(scene_data_r$nm_f))
+count(scene_data_r,cd_f)
+
+#Transaction Source Factor
+scene_data_r$txn_src_f <- as.factor(scene_data_r$txn_src)
+sort(unique(scene_data_r$txn_src_f))
+count(scene_data_r,txn_src_f)
+
+#Transaction Source 1 Factor
+scene_data_r$txn_tp_1_f <- as.factor(scene_data_r$txn_tp_1)
+sort(unique(scene_data_r$txn_tp_1_f))
+count(scene_data_r,txn_tp_1_f)
+
+#Transaction Source 2 Factor
+scene_data_r$txn_tp_2_f <- as.factor(scene_data_r$txn_tp_2)
+sort(unique(scene_data_r$txn_tp_2_f))
+count(scene_data_r,txn_tp_2_f)
+
+#Transaction Source 3 Factor
+scene_data_r$txn_tp_3_f <- as.factor(scene_data_r$txn_tp_3)
+sort(unique(scene_data_r$txn_tp_3_f))
+count(scene_data_r,txn_tp_3_f)
+
+#Month Factor
+scene_data_r$mo_clndr_code_f <- factor(scene_data_r$mo_clndr_code, levels = month_levels)
+sort(unique(scene_data_r$mo_clndr_code_f))
+count(scene_data_r,mo_clndr_code_f)
+
+group_by(scene_data_r, mrtl_stat_desc_f)%>%
+summarise(count=n(), percentage = n()/nrow(scene_mbr_dim))%>%
+arrange(desc(count))
+
+```
 
 ## Disconnect from Spark
 
