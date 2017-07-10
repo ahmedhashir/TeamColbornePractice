@@ -1,0 +1,77 @@
+---
+title: "MMA 865 Final Project"
+output: html_document
+date: "Summer 2017"
+author: "My Team Name"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+test<- "test"
+```
+
+
+```{r libraries}
+library(tidyverse)
+library(data.table)
+```
+
+
+## Load the data
+
+```{r}
+in_path = '/global/project/queens-mma/scene-csv/sample03/clean/'
+
+# Note: read_csv() is a the preferred way to read in a CSV file in the tidyverse.
+# Howewever, fread is 10 times faster. And why should *I* wait?
+
+scene_mbr_dim <-fread(paste(in_path, 'scene_mbr_dim.csv', sep=""), sep=",")
+scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
+scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
+
+# Note: you probably won't need these tables, but in case you do, here they are:
+# scene_pt_tp_dim <-read_csv(paste(in_path, 'scene_pt_tp_dim.csv', sep=""))
+# iwd_time <-read_csv(paste(in_path, 'iwd_time.csv', sep=""))
+```
+
+Note: the above loads the "small" data set. To load the full dataset instead, change the `in_path` to say "full" instead of `sample03`.
+
+View the first few rows of some of the tables:
+
+```{r}
+library(dplyr)
+
+#group by and arrange in desc order so as to have the latest updated account entry
+scene_dim <- scene_mbr_dim %>% 
+  group_by(scene_mbr_key,scene_mbr_seq_num) %>%
+  arrange(desc(scene_mbr_seq_num)) %>%
+  ungroup()
+#remove the seq number
+scene_dim_rm <- select(scene_dim, -2)
+#remove the duplicate entries
+scene_dim_dis <- distinct(scene_dim_rm, scene_mbr_key, .keep_all= TRUE)
+
+scene_dim_test <- select(scene_dim, -2) 
+
+#inner join the account table and scene_dim_dis table 
+scene_inner_join<-inner_join(scene_dim_dis,scene_mbr_acct_dim,by=c("scene_mbr_key"="prim_scene_mbr_key"))
+
+#remove NAs from transactional table (using base R)
+scene_fact1 <-scene_pt_fact %>% filter(!is.na(txn_amt))
+
+
+#group transaction table by the month and year and summarize the transaction amount 
+scene_fact2 <- scene_fact1 %>%
+  group_by(scene_mbr_key,anul_clndr_code,mo_clndr_code)%>%
+  summarise(txn_amt = sum(txn_amt))%>%
+  ungroup()
+
+#join scene_fact and other tables
+scene_join <- left_join(scene_fact2,scene_inner_join,by=c("scene_mbr_key"="scene_mbr_key"))
+
+```
+
+
+## Analysis
+
+Go forth with your analysis! Use `dplyr` to manipulate the data, `ggplot2` to plot/graph, `rpart` (or similar) for building classifiers, `cluster` for clustering, and all your other training. Good luck, we're all counting on you.
