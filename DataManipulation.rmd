@@ -57,7 +57,8 @@ scene_dim_test <- select(scene_dim, -2)
 scene_inner_join<-inner_join(scene_dim_dis,scene_mbr_acct_dim,by=c("scene_mbr_key"="prim_scene_mbr_key"))
 
 #remove NAs from transactional table (using base R)
-scene_fact1 <-scene_pt_fact %>% filter(!is.na(txn_amt))
+scene_fact1 <-scene_pt_fact %>% 
+  filter(txn_amt>0)
 
 
 #group transaction table by the month and year and summarize the transaction amount 
