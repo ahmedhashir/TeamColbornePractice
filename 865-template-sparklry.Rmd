@@ -57,7 +57,6 @@ Now, go forth and use `sparklyr`. For manipulating data, use the same `dplyr` co
 
 Good luck, grasshopper.
 
-
 ## Disconnect from Spark
 
 ```{r}
