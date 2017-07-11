@@ -1,0 +1,272 @@
+---
+title: "MMA 865 Final Project Milestone"
+author: "Team Colborne"
+date: "10th July 2017"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+#Project Overview
+
+Team Colborne initiated the project by separating into two teams, one of which would explore the data in the R environemnt, the other would look into migrating the findings from the R environment into Spark through *sparklyr*. Early in the data exploration phase, the Spark team noticed techonological gaps between data filtering and evaluation capabilities in R vs. in *sparklyr*. Given the nature of the course as a **Big Data** course, we agreed that although the learning curve may be steeper, the team would commit to using *sparklyr*, acknowledging that data cleaning, filtering and troubleshooting documentation may be more difficult. 
+The goal of Team Colborne for this project is to build a predictive model for any given months spending by customer, and to evaluate the factors that contribute to spending on the credit card. The business implications have been intentionally left out of this report because the intention is to derive these findings from the models, which have not yet been trained.
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Packages
+
+Given our intention to construct our models using Spark, the packages to be used for this project are limited to *sparkling*, *H20*, *sparklyr*, and *dplyr*. A number of packages that are also included in *tidyverse* may be used on aggregate data once it has been collected into the R environment.
+
+
+
+
+
+
+
+
+```{r libraries,echo = FALSE, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(data.table)
+library(sparklyr)
+library(h2o)
+library(rsparkling)
+library(dplyr)
+library(pander)
+library(ggplot2)
+```
+
+#Loading the data
+
+The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_acct_dim* and *scene_pt_fact*
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+in_path = '/global/project/queens-mma/scene-csv/sample03/clean/'
+
+scene_mbr_dim <-fread(paste(in_path, 'scene_mbr_dim.csv', sep=""), sep=",")
+scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
+scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
+
+```
+
+#Selection of Variables and Joining the Tables (HA)
+The working code for joining the Spark tables is shown below
+
+```{r}
+#group by and arranging the seq num in desc order so as to 
+#have the latest updated account entry
+scene_dim <- scene_mbr_dim %>% 
+  group_by(scene_mbr_key,scene_mbr_seq_num) %>%
+  arrange(desc(scene_mbr_seq_num)) %>%
+  ungroup()
+#removing the seq number field
+scene_dim_rm <- select(scene_dim, -2)
+#remove the duplicate entries
+scene_dim_dis <- distinct(scene_dim_rm, scene_mbr_key, .keep_all= TRUE)
+#joining the member account info with demographic info 
+scene_inner_join<-inner_join(scene_dim_dis,scene_mbr_acct_dim,
+                             by=c("scene_mbr_key"="prim_scene_mbr_key"))
+#filtering trans amount - between 0 and 10000 
+scene_fact1 <-scene_pt_fact %>% 
+  filter(txn_amt>0 & txn_amt<10000)
+#grouping transaction table by the month,year and trans type 
+#and summarizing the transaction amount 
+scene_fact2 <- scene_fact1 %>%
+  group_by(scene_mbr_key,anul_clndr_code,mo_clndr_code,txn_tp_3)%>%
+  summarise(txn_amt = sum(txn_amt))%>%
+  ungroup()
+#joining transaction info and account info tables
+scene_join <- left_join(scene_fact2,scene_inner_join,
+                        by=c("scene_mbr_key"="scene_mbr_key"))
+```
+
+We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below is the histogram of txn_amt to show outliers, this was used as substantiation to remove high rollers.
+
+```{r,echo = FALSE, message = FALSE, warning = FALSE}
+###Plot histogram of txn_amt and show outliers, use as substantiation to remove high rollers (MA)
+ggplot(scene_pt_fact, aes(txn_amt))+
+      geom_histogram(binwidth = 1000)
+```
+
+We are aware that our model loses some reliability given these filters. In future iterations, our model will reflect that some transactions that are greater than $0 were later reversed and will be omitted from the model.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Feature Engineering
+Variables to drop:
+-Dropping all the reference keys (someone to write out)
+-Remove ID variables
+
+Decision to keep location data and omit some highly correlated variables from datasets for different types of models. 
+
+To be feature engineered:
+-lagged variables (DM)
+-birth year into age (AC)
+-age of account (BL)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+#first 10 rows 
+scene_join_head <- head(scene_join,n=10)
+#Dropping variables
+scene_join_final <- select(scene_join,-6,-7,-13,-15,-17,-19,-21,-23,-25,-27,-29,-33,-37,-38)
+scene_join_final_head <- head(scene_join_final,n=10)
+```
+
+```{r,echo = FALSE, message = FALSE, warning = FALSE}
+#Displaying first 10 rows of the final table
+# pander(scene_join_final_head)
+```
+
+#Models
+(Chris Gervais)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
