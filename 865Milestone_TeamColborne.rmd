@@ -120,17 +120,6 @@ scene_data<- scene_data %>%
 scene_data<-scene_data %>%
   select(-brth_dt)
 
-#Some feature engineering in dplyr that should work on spark dataframe
-
-#Let's create 4 lagged variables, months [t-6:t-1], [t-12:t-7], [t-18, t-13], [t-24, t-19]
-#First we need to get rid of transaction type
-
-scene_data<-scene_data%>%
-  select(one_of(-))
-
-
-
-
 ```
 
 #Use of h2o because some other feature engineering can't be done in Spark
@@ -154,12 +143,12 @@ scene_data <- as.h2o(scene_data)
 
 #Now we'll try it on an h2o data table
 
-scene_long<-scene_data%>%
-  select(one_of(c("scene_mbr_key", "anul_clndr_code", "txn_amt")))
+# scene_long<-scene_data%>%
+#   select(one_of(c("scene_mbr_key", "anul_clndr_code", "txn_amt")))
 
-scene_long<-as.h2o(scene_long)
-
-h2o.pivot(x= scene_long, index= "scene_mbr_key", column = "anul_clndr_code", value= "txn_amt")
+# scene_long<-as.h2o(scene_long)
+# 
+# h2o.pivot(x= scene_long, index= "scene_mbr_key", column = "anul_clndr_code", value= "txn_amt")
 
 
 ```
@@ -185,6 +174,8 @@ The following code chunk presents the skeleton for the H2O models.
 
 ```{r}
 # For the purposes of this example, we are assuming the final data frame will be held in a Spark dataframe called scene_data.
+
+######## Following Skeleton Code may not completely run as of now #######
 
 h2o.init(nthreads = -1)
 
