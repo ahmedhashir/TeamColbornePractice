@@ -167,8 +167,9 @@ To be feature engineered:
 
 
 
-
-
+```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+scene_join_final %>% mutate(Age = 2017 - brth_dt)
+```
 
 
 
