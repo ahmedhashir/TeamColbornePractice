@@ -66,6 +66,9 @@ The working code for joining the Spark tables is shown below
 # Remove Duplicate customer rows by comparing scene_mbr_key
 scene_mbr_dim <- distinct(scene_mbr_dim, scene_mbr_key, .keep_all = TRUE)
 
+# Remove Duplicates from Account table by comparing scene_mbr_acct_key
+scene_mbr_acct_dim <- distinct(scene_mbr_acct_dim, scene_mbr_acct_key, .keep_all = TRUE)
+
 # Aggregating transaction amount by the month, year and trans type
 # and only keeping rows where transaction amount between 0 and 10,000 
 # Transaction amounts >10,000 are considered as outliers)
@@ -78,12 +81,13 @@ scene_pt_fact <- scene_pt_fact %>%
   group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code, txn_tp_3) %>%
   summarise(txn_amt = sum(txn_amt))
   
-scene_columns <- c("scene_mbr_key","scene_mbr_seq_num","eff_from_tmstamp","eff_to_tmstamp","brth_dt","psnl_post_cd","psnl_prov_state_cd","psnl_city",  "suspended_f","gndr_desc","prefrd_loctn_desc","email_prefnc_desc","ed_lvl_desc","prefrd_show_tm_desc","num_of_hh_pple_desc","movie_gng_frq_ref_desc","mrtl_stat_desc","lang_desc","anul_clndr_code","mo_clndr_code","txn_tp_3","txn_amt", "scene_acty_stat")
+scene_columns <- c("scene_mbr_key","scene_mbr_seq_num","eff_from_tmstamp","eff_to_tmstamp","brth_dt","psnl_post_cd","psnl_prov_state_cd","psnl_city",  "suspended_f","gndr_desc","prefrd_loctn_desc","email_prefnc_desc","ed_lvl_desc","prefrd_show_tm_desc","num_of_hh_pple_desc","movie_gng_frq_ref_desc","mrtl_stat_desc","lang_desc","anul_clndr_code","mo_clndr_code","txn_tp_3","txn_amt", "scene_acty_stat","enrollment_stat_cd","cncl_dt","scene_src_enrollment_dt","scene_mbr_acct_key")
 
 # Join Customer Dimension Data with Transaction data
 # Excluding reference key columns from joined data
-scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% select(scene_columns) 
+scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% select(everything()) 
 
+scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_acct_key") %>% select(scene_columns) 
 ```
 
 We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below is the histogram of txn_amt to show outliers, this was used as substantiation to remove high rollers.
@@ -148,6 +152,7 @@ To be feature engineered:
 -lagged variables (DM)
 -birth year into age (AC)
 -age of account (BL)
+
 
 
 
