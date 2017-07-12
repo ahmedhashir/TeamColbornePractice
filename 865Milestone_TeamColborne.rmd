@@ -59,6 +59,8 @@ scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep
 scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
 ```
 
+
+
 # Selection of Variables and Joining the Tables
 
 We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below are the box plots to indicate the outliers, this was used as substantiation to remove high rollers. The points highlighted in red in the box plots are the outliers, only the transaction amounts between $0 and $10000 are considered, elimating the other outliers.
@@ -85,13 +87,6 @@ ggplot(scene_pt_fact_filter, aes(txn_amt))+
 
 We are aware that our model loses some reliability given these filters. In future iterations, our model will reflect that some transactions that are greater than $0 were later reversed and will be omitted from the model.
 
-<<<<<<< HEAD
-```{r,echo = FALSE, message = FALSE, warning = FALSE}
-###Plot histogram of txn_amt and show outliers, use as substantiation to remove high rollers (MA)
-ggplot(scene_fact1, aes(txn_amt))+
-      geom_histogram(binwidth = 1000)
-```
-=======
 The working code for joining the Spark tables is shown below
 
 ```{r}
@@ -116,14 +111,12 @@ scene_columns <- c("scene_mbr_key","scene_mbr_seq_num","eff_from_tmstamp","eff_t
 
 # Join Customer Dimension Data with Transaction data
 # Excluding reference key columns from joined data
-scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% select(everything())
+scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% 
+  select(everything())
 
-scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_acct_key") %>% select(scene_columns)
+scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_acct_key") %>% 
+  select(one_of(scene_columns))
 ```
-
-
-
->>>>>>> ff51734a00a87d62301d3bd721bb93927022a543
 
 
 
@@ -177,20 +170,30 @@ To be feature engineered:
 -age of account (BL)
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 #Converting birth year to age
-scene_data %>% mutate(Age = 2017 - brth_dt)
-scene_data<- -c("brth_dt")
+scene_data<- scene_data %>% 
+  mutate(Age = 2017 - brth_dt)
+
+scene_data<-scene_data %>%
+  select(-brth_dt)
 ```
 
 
+#Use of h2o because some other feature engineering can't be done in Spark
+
+```{r}
+h2o.init(nthreads = -1)
+
+scene_data <- as.h2o(scene_data)
+
+```
+
 ```{r,echo = FALSE, message = FALSE, warning = FALSE}
-###See if Lagged variables work
 
-scene_join_lag<-scene_join%>%
+###Below is the code for creating monthly variables for spend by each customer. This code will not work in sparklyr or on an h2o class data.table so we need to figure out a new way to integrate time series effects
+
+scene_data_lag<-scene_data%>%
   unite("MoYear", mo_clndr_code, anul_clndr_code, sep="")
-scene_join_lag<-spread(scene_join_lag, MoYear, txn_amt, fill= 0)
- 
-lm<-lm(June2014~., data=scene_join_lag)
-
+scene_data_lag<-spread(scene_data_lag, MoYear, txn_amt, fill= 0)
 
 
 ```
@@ -267,11 +270,11 @@ The following is the skeleton for the RF model.
 
 h2o.init(nthreads = -1)
 
-data <- as.h2o(data)
+scene_data <- as.h2o(scene_data)
 
 #Check out the structure to confirm it converted properly.
 
-str(data)
+str(scene_data)
 
 # Convert factor variables
 # Note: This is not possible in sparklyr, but works perfectly in H2O!
