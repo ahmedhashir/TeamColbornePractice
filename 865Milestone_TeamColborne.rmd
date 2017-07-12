@@ -191,9 +191,20 @@ scene_data <- as.h2o(scene_data)
 
 ###Below is the code for creating monthly variables for spend by each customer. This code will not work in sparklyr or on an h2o class data.table so we need to figure out a new way to integrate time series effects
 
-scene_data_lag<-scene_data%>%
-  unite("MoYear", mo_clndr_code, anul_clndr_code, sep="")
-scene_data_lag<-spread(scene_data_lag, MoYear, txn_amt, fill= 0)
+# scene_data_lag<-scene_data%>%
+#   unite("MoYear", mo_clndr_code, anul_clndr_code, sep="")
+# scene_data_lag<-spread(scene_data_lag, MoYear, txn_amt, fill= 0)
+
+
+
+#Now we'll try it on an h2o data table
+
+scene_long<-scene_data%>%
+  select(one_of(c("scene_mbr_key", "anul_clndr_code", "txn_amt")))
+
+scene_long<-as.h2o(scene_long)
+
+h2o.pivot(x= scene_long, index= "scene_mbr_key", column = "anul_clndr_code", value= "txn_amt")
 
 
 ```
