@@ -43,11 +43,8 @@ rm(list=ls())
 library(tidyverse)
 library(data.table)
 library(sparklyr)
-library(h2o)
 library(rsparkling)
-library(dplyr)
-library(pander)
-library(ggplot2)
+library(h2o)
 ```
 
 #Loading the data
@@ -60,55 +57,73 @@ in_path = '/global/project/queens-mma/scene-csv/sample0003/clean/'
 scene_mbr_dim <-fread(paste(in_path, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
 scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
-
 ```
 
-#Selection of Variables and Joining the Tables (HA)
-The working code for joining the Spark tables is shown below
+# Selection of Variables and Joining the Tables
 
-```{r}
-#group by and arranging the seq num in desc order so as to 
-#have the latest updated account entry
-scene_dim <- scene_mbr_dim %>% 
-  group_by(scene_mbr_key,scene_mbr_seq_num) %>%
-  arrange(desc(scene_mbr_seq_num)) %>%
-  ungroup()
-#removing the seq number field
-scene_dim_rm <- select(scene_dim, -2)
-#remove the duplicate entries
-scene_dim_dis <- distinct(scene_dim_rm, scene_mbr_key, .keep_all= TRUE)
-#joining the member account info with demographic info 
-scene_inner_join<-inner_join(scene_dim_dis,scene_mbr_acct_dim,
-                             by=c("scene_mbr_key"="prim_scene_mbr_key"))
-#filtering trans amount - between 0 and 10000 
-scene_fact1 <-scene_pt_fact %>% 
-  filter(txn_amt>0 & txn_amt<10000)
-#grouping transaction table by the month,year and trans type 
-#and summarizing the transaction amount 
-scene_fact2 <- scene_fact1 %>%
-  group_by(scene_mbr_key,anul_clndr_code,mo_clndr_code,txn_tp_3)%>%
-  summarise(txn_amt = sum(txn_amt))%>%
-  ungroup()
-#joining transaction info and account info tables
-scene_join <- left_join(scene_fact2,scene_inner_join,
-                        by=c("scene_mbr_key"="scene_mbr_key"))
+We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below are the box plots to indicate the outliers, this was used as substantiation to remove high rollers. The points highlighted in red in the box plots are the outliers, only the transaction amounts between $0 and $10000 are considered, elimating the other outliers.
+
+```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+#Only including the rows where transaction amount between 0 and 10,000 
+scene_pt_fact_filter <- scene_pt_fact %>%
+  filter(txn_amt > 0 & txn_amt <= 10000)
 ```
-
-We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below is the histogram of txn_amt to show outliers, this was used as substantiation to remove high rollers.
 
 ```{r,echo = FALSE, message = FALSE, warning = FALSE}
-###Plot histogram of txn_amt and show outliers, use as substantiation to remove high rollers (MA)
-ggplot(scene_pt_fact, aes(txn_amt))+
-      geom_histogram(binwidth = 1000)
+###Plots of txn_amt to indicate outliers
+#boxplot of txn_amt for the original transaction data
+ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the original transaction data") +
+  xlab("year") + ylab("transaction amount")
+#boxplot of txn_amt after filtering transaction data
+ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the filtered transaction data") +
+  xlab("year") + ylab("transaction amount")
+#histogram of txn_amt 
+ggplot(scene_pt_fact_filter, aes(txn_amt))+
+      geom_histogram(binwidth = 300)+ggtitle("Histogram for transaction amount")+
+  xlab("transaction amount")
 ```
 
 We are aware that our model loses some reliability given these filters. In future iterations, our model will reflect that some transactions that are greater than $0 were later reversed and will be omitted from the model.
 
+<<<<<<< HEAD
 ```{r,echo = FALSE, message = FALSE, warning = FALSE}
 ###Plot histogram of txn_amt and show outliers, use as substantiation to remove high rollers (MA)
 ggplot(scene_fact1, aes(txn_amt))+
       geom_histogram(binwidth = 1000)
 ```
+=======
+The working code for joining the Spark tables is shown below
+
+```{r}
+# Remove Duplicate customer rows by comparing scene_mbr_key
+scene_mbr_dim <- distinct(scene_mbr_dim, scene_mbr_key, .keep_all = TRUE)
+
+# Remove Duplicates from Account table by comparing scene_mbr_acct_key
+scene_mbr_acct_dim <- distinct(scene_mbr_acct_dim, scene_mbr_acct_key, .keep_all = TRUE)
+
+# Aggregating transaction amount by the month, year and trans type
+# and only keeping rows where transaction amount between 0 and 10,000 
+# Transaction amounts >10,000 are considered as outliers)
+# We are only interested in customer spending therefore ignoring negative amounts
+# however, team is aware of reversal transactions and will take care of it in the
+# final model.
+
+scene_pt_fact <- scene_pt_fact_filter %>%
+  group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code, txn_tp_3) %>%
+  summarise(txn_amt = sum(txn_amt))
+  
+scene_columns <- c("scene_mbr_key","scene_mbr_seq_num","eff_from_tmstamp","eff_to_tmstamp","brth_dt","psnl_post_cd","psnl_prov_state_cd","psnl_city",  "suspended_f","gndr_desc","prefrd_loctn_desc","email_prefnc_desc","ed_lvl_desc","prefrd_show_tm_desc","num_of_hh_pple_desc","movie_gng_frq_ref_desc","mrtl_stat_desc","lang_desc","anul_clndr_code","mo_clndr_code","txn_tp_3","txn_amt", "scene_acty_stat","enrollment_stat_cd","cncl_dt","scene_src_enrollment_dt","scene_mbr_acct_key")
+
+# Join Customer Dimension Data with Transaction data
+# Excluding reference key columns from joined data
+scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% select(everything())
+
+scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_acct_key") %>% select(scene_columns)
+```
+
+
+
+>>>>>>> ff51734a00a87d62301d3bd721bb93927022a543
 
 
 
@@ -160,6 +175,12 @@ To be feature engineered:
 -lagged variables (DM)
 -birth year into age (AC)
 -age of account (BL)
+```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+#Converting birth year to age
+scene_data %>% mutate(Age = 2017 - brth_dt)
+scene_data<- -c("brth_dt")
+```
+
 
 ```{r,echo = FALSE, message = FALSE, warning = FALSE}
 ###See if Lagged variables work
@@ -221,21 +242,84 @@ lm<-lm(June2014~., data=scene_join_lag)
 
 
 
-```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
-#first 10 rows 
-scene_join_head <- head(scene_join,n=10)
-#Dropping variables
-scene_join_final <- select(scene_join,-6,-7,-13,-15,-17,-19,-21,-23,-25,-27,-29,-33,-37,-38)
-scene_join_final_head <- head(scene_join_final,n=10)
-```
 
-```{r,echo = FALSE, message = FALSE, warning = FALSE}
-#Displaying first 10 rows of the final table
-# pander(scene_join_final_head)
-```
 
 #Models
-(Chris Gervais)
+
+Team Colborne decided to use H2O as their machine learning library from the outset so that the models could be easily transferred to the *sparklyr* environment using the package *rsparkling*. Preliminary research has indicated H2O has several key advantages over Spark MLlib, namely:
+
+- Benchmark testing has indicated that H2O is significantly faster. Given the limitations of the Spark cluster we've been provided, speeding up our learning models will allow us to iterate quickly.
+
+- H2O provides a common interface for training and evaluating the machine learning algorithms, similar to what is available in the *caret* package. Given that this will be our first exposure to H2O, we believe this will allow us to quickly learn the syntax and apply it across numerous models.
+
+- Models such as deep learning, ensemble stacking, and others, are not yet available in Spark MLlib. The Team is interested in experimenting with these approaches, and this would not be possible without H2O.
+
+For modeling purposes, we have identified three candidate models that we believe will provide a necessary baseline from which to work. More specifically, we have selected GLM using the Elastic Net family, Random Forest, and Gradient Boosted Machines. 
+
+Given that elastic nets are able to perform variable selection and the models are interpretable, we are planning to use the elastic net model in our presentation of our findings. We should be able to talk about effect sizes and the significance of the variables that we have selected. However, we acknowledge that is unlikely to be the best model.
+
+As a result, we have decided to augment our business insights with models that have more predictive power. We plan to use the variable importance function to confirm the validity of the variables that were selected from elastic nets, and then use the models we create from RF and GBM to deliver more accurate predictions.
+
+The following is the skeleton for the RF model. 
+
+```{r}
+# For the purposes of this example, we are assuming the final data frame will be held in a Spark dataframe called data.
+
+h2o.init(nthreads = -1)
+
+data <- as.h2o(data)
+
+#Check out the structure to confirm it converted properly.
+
+str(data)
+
+# Convert factor variables
+# Note: This is not possible in sparklyr, but works perfectly in H2O!
+
+factorsList <- c()
+data[,factorsList] <- as.factor(data[,factorsList])
+
+# Similar to caret, h2o givesus an easy way to build training / testing sets
+
+# To get a validation dataset, we simply enter 0.6, 0.3. The remaining 0.1 is implicitly defined.
+
+# Given that we're planning on using lagged variables, we're hoping the time nature of the prediction problem won't be an issue. However, we may need to find alternative ways to split our data if it doesn't work.
+
+splits <- h2o.splitFrame(data, 0.8)
+train <- splits[[1]]
+test <- splits[[2]]
+
+# Tell h2o which are response variables and which are features
+x <- c()
+y <- "Y"  
+
+# Building the model! 
+# nfolds tells it to use 10 fold cross-validation, note that we won't be doing this on the large data set, just on the sample.
+
+# RF_Defaults is the default random forest, using ntrees = 50 and maxdepth = 20
+# We have set it up so we can do hyperparameter tuning afterwards
+
+m <- h2o.randomForest(x, y, train, nfolds = 10, model_id = "RF_defaults")
+
+# Show the performance on the test set
+h2o.performance(m, test)
+
+# Here's how we plan to do parameter tuning!
+g <- h2o.grid("randomForest",
+              hyper_params = list(
+                ntrees = c(50, 100, 120),
+                max_depth = c(40, 60),
+                min_rows = c(1, 2)
+              ),
+              x = x, y = y, training_frame = train, nfolds = 10
+)
+
+
+rf_grid = h2o.getGrid(g@grid_id, sort_by = "r2", decreasing = TRUE)
+best_rf_model_id <- rf_grid@model_ids[[1]]
+best_rf <- h2o.getModel(best_rf_model_id)
+```
+
 
 
 
