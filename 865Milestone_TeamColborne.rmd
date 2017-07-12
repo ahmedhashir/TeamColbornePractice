@@ -12,30 +12,12 @@ output:
 Team Colborne initiated the project by separating into two teams, one of which would explore the data in the R environemnt, the other would look into migrating the findings from the R environment into Spark through *sparklyr*. Early in the data exploration phase, the Spark team noticed techonological gaps between data filtering and evaluation capabilities in R vs. in *sparklyr*. Given the nature of the course as a **Big Data** course, we agreed that although the learning curve may be steeper, the team would commit to using *sparklyr*, acknowledging that data cleaning, filtering and troubleshooting documentation may be more difficult. 
 The goal of Team Colborne for this project is to build a predictive model for any given months spending by customer, and to evaluate the factors that contribute to spending on the credit card. The business implications have been intentionally left out of this report because the intention is to derive these findings from the models, which have not yet been trained.
 
-
-
-
-
-
-
-
-
-
-
-
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 #Packages
 
 Given our intention to construct our models using Spark, the packages to be used for this project are limited to *rsparkling*, *H20*, *sparklyr*, and *dplyr*. A number of packages that are also included in *tidyverse* may be used on aggregate data once it has been collected into the R environment.
-
-
-
-
-
-
 
 
 ```{r libraries,echo = FALSE, message = FALSE, warning = FALSE}
@@ -58,8 +40,6 @@ scene_mbr_dim <-fread(paste(in_path, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
 scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
 ```
-
-
 
 # Selection of Variables and Joining the Tables
 
@@ -122,45 +102,6 @@ scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_
   select(one_of(scene_columns))
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #Feature Engineering
 Decision to keep location data and omit some highly correlated variables from datasets for different types of models. 
 
@@ -173,7 +114,6 @@ scene_data<- scene_data %>%
 scene_data<-scene_data %>%
   select(-brth_dt)
 ```
-
 
 #Use of h2o because some other feature engineering can't be done in Spark
 
@@ -195,54 +135,6 @@ scene_data_lag<-spread(scene_data_lag, MoYear, txn_amt, fill= 0)
 
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #Models
@@ -320,54 +212,3 @@ rf_grid = h2o.getGrid(g@grid_id, sort_by = "r2", decreasing = TRUE)
 best_rf_model_id <- rf_grid@model_ids[[1]]
 best_rf <- h2o.getModel(best_rf_model_id)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
