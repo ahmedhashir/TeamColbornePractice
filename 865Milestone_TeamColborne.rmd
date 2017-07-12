@@ -175,7 +175,7 @@ Given that elastic nets are able to perform variable selection and the models ar
 
 As a result, we have decided to augment our business insights with models that have more predictive power. We plan to use the variable importance function to confirm the validity of the variables that were selected from elastic nets, and then use the models we create from RF and GBM to deliver more accurate predictions.
 
-The following is the skeleton for the RF model. 
+The following code chunk presents the skeleton for the H2O models. 
 
 ```{r}
 # For the purposes of this example, we are assuming the final data frame will be held in a Spark dataframe called scene_data.
@@ -214,13 +214,13 @@ y <- "Y"
 # RF_Defaults is the default random forest, using ntrees = 50 and maxdepth = 20
 # We have set it up so we can do hyperparameter tuning afterwards
 
-m <- h2o.randomForest(x, y, train, nfolds = 10, model_id = "RF_defaults")
+m_rf_default <- h2o.randomForest(x, y, train, nfolds = 10, model_id = "RF_defaults")
 
 # Show the performance on the test set
-h2o.performance(m, test)
+h2o.performance(m_rf_default, test)
 
 # Here's how we plan to do parameter tuning!
-g <- h2o.grid("randomForest",
+g_rf <- h2o.grid("randomForest",
               hyper_params = list(
                 ntrees = c(50, 100, 120),
                 max_depth = c(40, 60),
@@ -229,8 +229,49 @@ g <- h2o.grid("randomForest",
               x = x, y = y, training_frame = train, nfolds = 10
 )
 
-
-rf_grid = h2o.getGrid(g@grid_id, sort_by = "r2", decreasing = TRUE)
+rf_grid <- h2o.getGrid(g_rf@grid_id, sort_by = "r2", decreasing = TRUE)
 best_rf_model_id <- rf_grid@model_ids[[1]]
-best_rf <- h2o.getModel(best_rf_model_id)
+m_rf_tuned <- h2o.getModel(best_rf_model_id)
+
+# Build the GBM skeleton
+
+m_gbm_default <- h2o.gbm(x, y, train, nfolds = 10, model_id = "GBM_defaults")
+
+h2o.performance(m_gbm_default, test)
+
+# Parameter tuning for GBM
+
+g_gbm <- h2o.grid("gbm",
+              hyper_params = list(
+                ntrees = c(50, 100, 120),
+                max_depth = c(40, 60),
+                min_rows = c(1, 2),
+                sample_rate = c(0.7, 0.8, 0.9, 1),
+                col_sample_rate = c(0.7, 0.9, 1),
+                nbins = c(8, 12, 16, 20, 24, 28, 32)
+                stopping_tolerance = 0.001)
+              ),
+              x = x, y = y, training_frame = train, nfolds = 10
+)
+
+gbm_grid <- h2o.getGrid(g_gbm@grid_id, sort_by = "r2", decreasing = TRUE)
+best_gbm_model_id <- gbm_grid@model_ids[[1]]
+m_gbm_tuned <- h2o.getModel(best_gbm_model_id)
+
+# Finally, skeleton for the elastic net.
+
+m_glm_default <- h2o.glm(x, y, train, nfolds = 10, model_id = "GLM_defaults")
+
+g_glm <- h2o.grid("glm",
+              hyper_params = list(
+                alpha = c(0, 0.25, 0.5, 0.75, 1),
+                lambda = c(0, 0.25, 0.5, 0.75, 1)
+              ),
+              x = x, y = y, training_frame = train, nfolds = 10
+)
+
+glm_grid <- h2o.getGrid(g_glm@grid_id, sort_by = "r2", decreasing = TRUE)
+best_glm_model_id <- glm_grid@model_ids[[1]]
+m_glm_tuned <- h2o.getModel(best_glm_model_id)
+
 ```
