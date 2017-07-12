@@ -225,7 +225,81 @@ scene_data<- -c("brth_dt")
 
 
 #Models
-(Chris Gervais)
+
+Team Colborne decided to use H2O as their machine learning library from the outset so that the models could be easily transferred to the *sparklyr* environment using the package *rsparkling*. Preliminary research has indicated H2O has several key advantages over Spark MLlib, namely:
+
+- Benchmark testing has indicated that H2O is significantly faster. Given the limitations of the Spark cluster we've been provided, speeding up our learning models will allow us to iterate quickly.
+
+- H2O provides a common interface for training and evaluating the machine learning algorithms, similar to what is available in the *caret* package. Given that this will be our first exposure to H2O, we believe this will allow us to quickly learn the syntax and apply it across numerous models.
+
+- Models such as deep learning, ensemble stacking, and others, are not yet available in Spark MLlib. The Team is interested in experimenting with these approaches, and this would not be possible without H2O.
+
+For modeling purposes, we have identified three candidate models that we believe will provide a necessary baseline from which to work. More specifically, we have selected GLM using the Elastic Net family, Random Forest, and Gradient Boosted Machines. 
+
+Given that elastic nets are able to perform variable selection and the models are interpretable, we are planning to use the elastic net model in our presentation of our findings. We should be able to talk about effect sizes and the significance of the variables that we have selected. However, we acknowledge that is unlikely to be the best model.
+
+As a result, we have decided to augment our business insights with models that have more predictive power. We plan to use the variable importance function to confirm the validity of the variables that were selected from elastic nets, and then use the models we create from RF and GBM to deliver more accurate predictions.
+
+The following is the skeleton for the RF model. 
+
+```{r}
+# For the purposes of this example, we are assuming the final data frame will be held in a Spark dataframe called data.
+
+h2o.init(nthreads = -1)
+
+data <- as.h2o(data)
+
+#Check out the structure to confirm it converted properly.
+
+str(data)
+
+# Convert factor variables
+# Note: This is not possible in sparklyr, but works perfectly in H2O!
+
+factorsList <- c()
+data[,factorsList] <- as.factor(data[,factorsList])
+
+# Similar to caret, h2o givesus an easy way to build training / testing sets
+
+# To get a validation dataset, we simply enter 0.6, 0.3. The remaining 0.1 is implicitly defined.
+
+# Given that we're planning on using lagged variables, we're hoping the time nature of the prediction problem won't be an issue. However, we may need to find alternative ways to split our data if it doesn't work.
+
+splits <- h2o.splitFrame(data, 0.8)
+train <- splits[[1]]
+test <- splits[[2]]
+
+# Tell h2o which are response variables and which are features
+x <- c()
+y <- "Y"  
+
+# Building the model! 
+# nfolds tells it to use 10 fold cross-validation, note that we won't be doing this on the large data set, just on the sample.
+
+# RF_Defaults is the default random forest, using ntrees = 50 and maxdepth = 20
+# We have set it up so we can do hyperparameter tuning afterwards
+
+m <- h2o.randomForest(x, y, train, nfolds = 10, model_id = "RF_defaults")
+
+# Show the performance on the test set
+h2o.performance(m, test)
+
+# Here's how we plan to do parameter tuning!
+g <- h2o.grid("randomForest",
+              hyper_params = list(
+                ntrees = c(50, 100, 120),
+                max_depth = c(40, 60),
+                min_rows = c(1, 2)
+              ),
+              x = x, y = y, training_frame = train, nfolds = 10
+)
+
+
+rf_grid = h2o.getGrid(g@grid_id, sort_by = "r2", decreasing = TRUE)
+best_rf_model_id <- rf_grid@model_ids[[1]]
+best_rf <- h2o.getModel(best_rf_model_id)
+```
+
 
 
 
