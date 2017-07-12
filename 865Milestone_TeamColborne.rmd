@@ -113,6 +113,18 @@ scene_data<- scene_data %>%
 # Removing Birth Year
 scene_data<-scene_data %>%
   select(-brth_dt)
+
+#Some feature engineering in dplyr that should work on spark dataframe
+
+#Let's create 4 lagged variables, months [t-6:t-1], [t-12:t-7], [t-18, t-13], [t-24, t-19]
+#First we need to get rid of transaction type
+
+scene_data<-scene_data%>%
+  select(one_of(-))
+
+
+
+
 ```
 
 #Use of h2o because some other feature engineering can't be done in Spark
