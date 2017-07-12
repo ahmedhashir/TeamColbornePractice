@@ -44,7 +44,6 @@ library(data.table)
 library(sparklyr)
 library(rsparkling)
 library(h2o)
-library(pander)
 ```
 
 #Loading the data
@@ -60,6 +59,31 @@ scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
 ```
 
 # Selection of Variables and Joining the Tables
+
+We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below are the box plots to indicate the outliers, this was used as substantiation to remove high rollers. The points highlighted in red in the box plots are the outliers, only the transaction amounts between $0 and $10000 are considered, elimating the other outliers.
+
+```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+#Only including the rows where transaction amount between 0 and 10,000 
+scene_pt_fact_filter <- scene_pt_fact %>%
+  filter(txn_amt > 0 & txn_amt <= 10000)
+```
+
+```{r,echo = FALSE, message = FALSE, warning = FALSE}
+###Plots of txn_amt to indicate outliers
+#boxplot of txn_amt for the original transaction data
+ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the original transaction data") +
+  xlab("year") + ylab("transaction amount")
+#boxplot of txn_amt after filtering transaction data
+ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the filtered transaction data") +
+  xlab("year") + ylab("transaction amount")
+#histogram of txn_amt 
+ggplot(scene_pt_fact_filter, aes(txn_amt))+
+      geom_histogram(binwidth = 300)+ggtitle("Histogram for transaction amount")+
+  xlab("transaction amount")
+```
+
+We are aware that our model loses some reliability given these filters. In future iterations, our model will reflect that some transactions that are greater than $0 were later reversed and will be omitted from the model.
+
 The working code for joining the Spark tables is shown below
 
 ```{r}
@@ -73,11 +97,10 @@ scene_mbr_acct_dim <- distinct(scene_mbr_acct_dim, scene_mbr_acct_key, .keep_all
 # and only keeping rows where transaction amount between 0 and 10,000 
 # Transaction amounts >10,000 are considered as outliers)
 # We are only interested in customer spending therefore ignoring negative amounts
-# however, team is aware of reversal transactions and will take care of it in the 
+# however, team is aware of reversal transactions and will take care of it in the
 # final model.
 
-scene_pt_fact <- scene_pt_fact %>%
-  filter(txn_amt > 0 & txn_amt <= 10000) %>%
+scene_pt_fact <- scene_pt_fact_filter %>%
   group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code, txn_tp_3) %>%
   summarise(txn_amt = sum(txn_amt))
   
@@ -85,20 +108,11 @@ scene_columns <- c("scene_mbr_key","scene_mbr_seq_num","eff_from_tmstamp","eff_t
 
 # Join Customer Dimension Data with Transaction data
 # Excluding reference key columns from joined data
-scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% select(everything()) 
+scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% select(everything())
 
-scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_acct_key") %>% select(scene_columns) 
+scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_acct_key") %>% select(scene_columns)
 ```
 
-We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below is the histogram of txn_amt to show outliers, this was used as substantiation to remove high rollers.
-
-```{r,echo = FALSE, message = FALSE, warning = FALSE}
-###Plot histogram of txn_amt and show outliers, use as substantiation to remove high rollers (MA)
-ggplot(scene_pt_fact, aes(txn_amt))+
-      geom_histogram(binwidth = 1000)
-```
-
-We are aware that our model loses some reliability given these filters. In future iterations, our model will reflect that some transactions that are greater than $0 were later reversed and will be omitted from the model.
 
 
 
@@ -152,69 +166,62 @@ To be feature engineered:
 -lagged variables (DM)
 -birth year into age (AC)
 -age of account (BL)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
-#first 10 rows 
-scene_join_head <- head(scene_join,n=10)
-#Dropping variables
-scene_join_final <- select(scene_join,-6,-7,-13,-15,-17,-19,-21,-23,-25,-27,-29,-33,-37,-38)
-scene_join_final_head <- head(scene_join_final,n=10)
+scene_data %>% mutate(Age = 2017 - brth_dt)
+scene_data<- -c("brth_dt")
 ```
 
-```{r,echo = FALSE, message = FALSE, warning = FALSE}
-#Displaying first 10 rows of the final table
-# pander(scene_join_final_head)
-```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #Models
 (Chris Gervais)
