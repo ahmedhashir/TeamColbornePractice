@@ -73,8 +73,14 @@ We are aware that our model loses some reliability given these filters. In futur
 The working code for joining the Spark tables is shown below
 
 ```{r}
+#grouping by member key and arranging seq entry num in desc order so as to have the latest updated account entry
+scene_dim <- scene_mbr_dim %>% 
+  group_by(scene_mbr_key,scene_mbr_seq_num) %>%
+  arrange(desc(scene_mbr_seq_num)) %>%
+  ungroup()
+
 # Remove Duplicate customer rows by comparing scene_mbr_key
-scene_mbr_dim <- distinct(scene_mbr_dim, scene_mbr_key, .keep_all = TRUE)
+scene_mbr_dim <- distinct(scene_dim, scene_mbr_key, .keep_all = TRUE)
 
 # Remove Duplicates from Account table by comparing scene_mbr_acct_key
 scene_mbr_acct_dim <- distinct(scene_mbr_acct_dim, scene_mbr_acct_key, .keep_all = TRUE)
