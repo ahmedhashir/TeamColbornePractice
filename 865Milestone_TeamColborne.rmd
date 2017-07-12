@@ -29,7 +29,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 #Packages
 
-Given our intention to construct our models using Spark, the packages to be used for this project are limited to *sparkling*, *H20*, *sparklyr*, and *dplyr*. A number of packages that are also included in *tidyverse* may be used on aggregate data once it has been collected into the R environment.
+Given our intention to construct our models using Spark, the packages to be used for this project are limited to *rsparkling*, *H20*, *sparklyr*, and *dplyr*. A number of packages that are also included in *tidyverse* may be used on aggregate data once it has been collected into the R environment.
 
 
 
@@ -73,12 +73,15 @@ scene_pt_fact_filter <- scene_pt_fact %>%
 
 ```{r,echo = FALSE, message = FALSE, warning = FALSE}
 ###Plots of txn_amt to indicate outliers
+
 #boxplot of txn_amt for the original transaction data
 ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the original transaction data") +
   xlab("year") + ylab("transaction amount")
+
 #boxplot of txn_amt after filtering transaction data
 ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the filtered transaction data") +
   xlab("year") + ylab("transaction amount")
+
 #histogram of txn_amt 
 ggplot(scene_pt_fact_filter, aes(txn_amt))+
       geom_histogram(binwidth = 300)+ggtitle("Histogram for transaction amount")+
@@ -114,6 +117,7 @@ scene_columns <- c("scene_mbr_key","scene_mbr_seq_num","eff_from_tmstamp","eff_t
 scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% 
   select(everything())
 
+# Joining scene_data with account data
 scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_acct_key") %>% 
   select(one_of(scene_columns))
 ```
@@ -158,21 +162,14 @@ scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_
 
 
 #Feature Engineering
-Variables to drop:
--Dropping all the reference keys (someone to write out)
--Remove ID variables
-
 Decision to keep location data and omit some highly correlated variables from datasets for different types of models. 
 
-To be feature engineered:
--lagged variables (DM)
--birth year into age (AC)
--age of account (BL)
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 #Converting birth year to age
 scene_data<- scene_data %>% 
   mutate(Age = 2017 - brth_dt)
 
+# Removing Birth Year
 scene_data<-scene_data %>%
   select(-brth_dt)
 ```
@@ -193,6 +190,7 @@ scene_data <- as.h2o(scene_data)
 
 scene_data_lag<-scene_data%>%
   unite("MoYear", mo_clndr_code, anul_clndr_code, sep="")
+
 scene_data_lag<-spread(scene_data_lag, MoYear, txn_amt, fill= 0)
 
 
@@ -266,7 +264,7 @@ As a result, we have decided to augment our business insights with models that h
 The following is the skeleton for the RF model. 
 
 ```{r}
-# For the purposes of this example, we are assuming the final data frame will be held in a Spark dataframe called data.
+# For the purposes of this example, we are assuming the final data frame will be held in a Spark dataframe called scene_data.
 
 h2o.init(nthreads = -1)
 
