@@ -12,30 +12,12 @@ output:
 Team Colborne initiated the project by separating into two teams, one of which would explore the data in the R environemnt, the other would look into migrating the findings from the R environment into Spark through *sparklyr*. Early in the data exploration phase, the Spark team noticed techonological gaps between data filtering and evaluation capabilities in R vs. in *sparklyr*. Given the nature of the course as a **Big Data** course, we agreed that although the learning curve may be steeper, the team would commit to using *sparklyr*, acknowledging that data cleaning, filtering and troubleshooting documentation may be more difficult. 
 The goal of Team Colborne for this project is to build a predictive model for any given months spending by customer, and to evaluate the factors that contribute to spending on the credit card. The business implications have been intentionally left out of this report because the intention is to derive these findings from the models, which have not yet been trained.
 
-
-
-
-
-
-
-
-
-
-
-
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 #Packages
 
-Given our intention to construct our models using Spark, the packages to be used for this project are limited to *sparkling*, *H20*, *sparklyr*, and *dplyr*. A number of packages that are also included in *tidyverse* may be used on aggregate data once it has been collected into the R environment.
-
-
-
-
-
-
+Given our intention to construct our models using Spark, the packages to be used for this project are limited to *rsparkling*, *H20*, *sparklyr*, and *dplyr*. A number of packages that are also included in *tidyverse* may be used on aggregate data once it has been collected into the R environment.
 
 
 ```{r libraries,echo = FALSE, message = FALSE, warning = FALSE}
@@ -59,8 +41,6 @@ scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep
 scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
 ```
 
-
-
 # Selection of Variables and Joining the Tables
 
 We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below are the box plots to indicate the outliers, this was used as substantiation to remove high rollers. The points highlighted in red in the box plots are the outliers, only the transaction amounts between $0 and $10000 are considered, elimating the other outliers.
@@ -73,12 +53,15 @@ scene_pt_fact_filter <- scene_pt_fact %>%
 
 ```{r,echo = FALSE, message = FALSE, warning = FALSE}
 ###Plots of txn_amt to indicate outliers
+
 #boxplot of txn_amt for the original transaction data
 ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the original transaction data") +
   xlab("year") + ylab("transaction amount")
+
 #boxplot of txn_amt after filtering transaction data
 ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the filtered transaction data") +
   xlab("year") + ylab("transaction amount")
+
 #histogram of txn_amt 
 ggplot(scene_pt_fact_filter, aes(txn_amt))+
       geom_histogram(binwidth = 300)+ggtitle("Histogram for transaction amount")+
@@ -114,69 +97,23 @@ scene_columns <- c("scene_mbr_key","scene_mbr_seq_num","eff_from_tmstamp","eff_t
 scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% 
   select(everything())
 
+# Joining scene_data with account data
 scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_acct_key") %>% 
   select(one_of(scene_columns))
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #Feature Engineering
-Variables to drop:
--Dropping all the reference keys (someone to write out)
--Remove ID variables
-
 Decision to keep location data and omit some highly correlated variables from datasets for different types of models. 
 
-To be feature engineered:
--lagged variables (DM)
--birth year into age (AC)
--age of account (BL)
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 #Converting birth year to age
 scene_data<- scene_data %>% 
   mutate(Age = 2017 - brth_dt)
 
+# Removing Birth Year
 scene_data<-scene_data %>%
   select(-brth_dt)
 ```
-
 
 #Use of h2o because some other feature engineering can't be done in Spark
 
@@ -210,54 +147,6 @@ h2o.pivot(x= scene_long, index= "scene_mbr_key", column = "anul_clndr_code", val
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #Models
 
 Team Colborne decided to use H2O as their machine learning library from the outset so that the models could be easily transferred to the *sparklyr* environment using the package *rsparkling*. Preliminary research has indicated H2O has several key advantages over Spark MLlib, namely:
@@ -277,7 +166,7 @@ As a result, we have decided to augment our business insights with models that h
 The following is the skeleton for the RF model. 
 
 ```{r}
-# For the purposes of this example, we are assuming the final data frame will be held in a Spark dataframe called data.
+# For the purposes of this example, we are assuming the final data frame will be held in a Spark dataframe called scene_data.
 
 h2o.init(nthreads = -1)
 
@@ -333,54 +222,3 @@ rf_grid = h2o.getGrid(g@grid_id, sort_by = "r2", decreasing = TRUE)
 best_rf_model_id <- rf_grid@model_ids[[1]]
 best_rf <- h2o.getModel(best_rf_model_id)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
