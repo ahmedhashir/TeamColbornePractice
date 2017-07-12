@@ -39,6 +39,7 @@ Given our intention to construct our models using Spark, the packages to be used
 
 
 ```{r libraries,echo = FALSE, message = FALSE, warning = FALSE}
+rm(list=ls())
 library(tidyverse)
 library(data.table)
 library(sparklyr)
@@ -54,7 +55,7 @@ library(ggplot2)
 The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_acct_dim* and *scene_pt_fact*
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
-in_path = '/global/project/queens-mma/scene-csv/sample03/clean/'
+in_path = '/global/project/queens-mma/scene-csv/sample0003/clean/'
 
 scene_mbr_dim <-fread(paste(in_path, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
@@ -103,7 +104,11 @@ ggplot(scene_pt_fact, aes(txn_amt))+
 
 We are aware that our model loses some reliability given these filters. In future iterations, our model will reflect that some transactions that are greater than $0 were later reversed and will be omitted from the model.
 
-
+```{r,echo = FALSE, message = FALSE, warning = FALSE}
+###Plot histogram of txn_amt and show outliers, use as substantiation to remove high rollers (MA)
+ggplot(scene_fact1, aes(txn_amt))+
+      geom_histogram(binwidth = 1000)
+```
 
 
 
@@ -156,7 +161,18 @@ To be feature engineered:
 -birth year into age (AC)
 -age of account (BL)
 
+```{r,echo = FALSE, message = FALSE, warning = FALSE}
+###See if Lagged variables work
 
+scene_join_lag<-scene_join%>%
+  unite("MoYear", mo_clndr_code, anul_clndr_code, sep="")
+scene_join_lag<-spread(scene_join_lag, MoYear, txn_amt, fill= 0)
+ 
+lm<-lm(June2014~., data=scene_join_lag)
+
+
+
+```
 
 
 

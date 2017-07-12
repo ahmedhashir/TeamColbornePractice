@@ -42,24 +42,11 @@ I've created the directories in HDFS so that they have the same structure as the
 ```{r}
 in_path = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
 
-scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
-<<<<<<< HEAD
-
-scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
-
-scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
-
-
-=======
-head(scene_mbr_dim, n=10)
-
 scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
 head(scene_mbr_acct_dim, n=10)
 dim(scene_mbr_acct_dim)
 
 scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
-dim(scene_pt_fact)
-head(scene_pt_fact, n=10)
 
 ```
 Rows and Columns of scene_mbr_dim
@@ -86,8 +73,7 @@ colnames(scene_data)
 summary(scene_data)
 dim(scene_data)
 
-#spark_write_parquet(scene_data, "hdfs:///user/sa100006/scene-csv/sample03/clean/")
->>>>>>> 76303570b60e24a591d98728aa5dd75b8bc78c65
+
 ```
 
 ## Analyze
