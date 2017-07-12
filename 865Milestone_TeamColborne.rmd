@@ -167,6 +167,7 @@ To be feature engineered:
 -birth year into age (AC)
 -age of account (BL)
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+#Converting birth year to age
 scene_data %>% mutate(Age = 2017 - brth_dt)
 scene_data<- -c("brth_dt")
 ```
