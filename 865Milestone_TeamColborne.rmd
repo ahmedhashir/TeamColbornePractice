@@ -57,22 +57,22 @@ scene_pt_fact_filter <- scene_pt_fact %>%
 #boxplot of txn_amt for the original transaction data
 ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+
   geom_boxplot(outlier.colour = "red", outlier.shape = 1)+
-  labels(x = "year",
-         y = "transaction amount",
+  labs(x = "year",
+        y = "transaction amount",
          title = "Plot for the original transaction data")
  
 
 #boxplot of txn_amt after filtering transaction data
 ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+
   geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ 
-  labels(x = "year",
+  labs(x = "year",
          y = "transaction amount",
          title = "Plot for the filtered transaction data")
 
 #histogram of txn_amt 
 ggplot(scene_pt_fact_filter, aes(txn_amt))+
   geom_histogram(binwidth = 300)+
-  labels(x = "transaction amount",
+  labs(x = "transaction amount",
          title = "Histogram for transaction amount")
 ```
 
@@ -93,16 +93,52 @@ scene_mbr_dim <- distinct(scene_dim, scene_mbr_key, .keep_all = TRUE)
 # Remove Duplicates from Account table by comparing scene_mbr_acct_key
 scene_mbr_acct_dim <- distinct(scene_mbr_acct_dim, scene_mbr_acct_key, .keep_all = TRUE)
 
-# Aggregating transaction amount by the month, year and trans type
+# Aggregating transaction amount by the month, year
 # and only keeping rows where transaction amount between 0 and 10,000 
 # Transaction amounts >10,000 are considered as outliers)
 # We are only interested in customer spending therefore ignoring negative amounts
 # however, team is aware of reversal transactions and will take care of it in the
 # final model.
 
+
+#We want to omit the transaction type so that each customer has one entry per month
+
 scene_pt_fact <- scene_pt_fact_filter %>%
-  group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code, txn_tp_3) %>%
+  group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
   summarise(txn_amt = sum(txn_amt))
+
+sept_spend <- scene_pt_fact%>%
+  filter(anul_clndr_code == 2016 & mo_clndr_code == "September")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(sept_spend=sum(txn_amt))
+
+
+#Filter for the past 6 months spend and aggregate it into one variable
+pt_6mo<-scene_pt_fact%>%
+  filter(anul_clndr_code == 2016 & mo_clndr_code %in% c("August", "July", "June", "May", "April", "March"))%>%
+  group_by(scene_mbr_key)%>%
+  summarise("Lag1"=sum(txn_amt))
+
+##Filter for months t-12 to t-7 and aggregate it into one variable
+# | is the logical equivalent of "or"
+pt_12mo<-scene_pt_fact%>%
+  filter(anul_clndr_code ==2016 & mo_clndr_code %in% c("February", "January") | anul_clndr_code == 2015 & mo_clndr_code %in% c("December", "November", "October", "September"))%>%
+  group_by(scene_mbr_key)%>%
+  summarise("Lag2"=sum(txn_amt))
+
+##Filter for months t-18 to t-13 and aggregate it into one variable
+pt_18mo<-scene_pt_fact%>%
+  filter(anul_clndr_code == 2015 & mo_clndr_code %in% c("August", "July", "June", "May", "April", "March"))%>%
+  group_by(scene_mbr_key)%>%
+  summarise("Lag1"=sum(txn_amt))
+
+#Now let's join them into one dataframe
+lagged<-left_join(x= sept_spend, y= pt_6mo, by="scene_mbr_key")%>%
+                    left_join(y= pt_12mo, by="scene_mbr_key")%>%
+                            left_join(y= pt_18mo, by="scene_mbr_key")
+
+colnames(lagged)<-c("scene_mbr_key", "Sept", "Lag1", "Lag2", "Lag3")
+
   
 scene_columns <- c("scene_mbr_key",
                    "scene_mbr_seq_num",
@@ -140,7 +176,9 @@ scene_data <- left_join(x = scene_mbr_dim,
 scene_data <- left_join(x = scene_data, 
                         y = scene_mbr_acct_dim, 
                         by = "scene_mbr_acct_key") %>% 
-  select(one_of(scene_columns))
+              select(one_of(scene_columns))%>%
+                  inner_join(y=lagged, by = "scene_mbr_key")
+  
 ```
 
 #Feature Engineering
@@ -168,8 +206,23 @@ test_data_set <- scene_data %>%
     -cncl_dt
   )
 
+
+  
+
+
 test_data_set <- test_data_set %>% mutate_if(is.character, as.factor)
 ```
+
+```{r}
+
+
+
+
+
+```
+
+
+
 
 #Use of h2o because some other feature engineering can't be done in Spark
 
