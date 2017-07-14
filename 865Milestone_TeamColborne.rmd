@@ -146,68 +146,15 @@ scene_data <- left_join(x = scene_data,
 #Feature Engineering
 Decision to keep location data and omit some highly correlated variables from datasets for different types of models. 
 
-<<<<<<< HEAD
-To be feature engineered:
--lagged variables (DM)
--birth year into age (AC)
--age of account (BL)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
-scene_join_final %>% mutate(Age = 2017 - brth_dt)
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-=======
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 #Converting birth year to age
 scene_data<- scene_data %>% 
   mutate(Age = 2017 - brth_dt)
->>>>>>> d11deb70b1f12e081a300780cf570298e0916fbb
 
 # Removing Birth Year
 scene_data<-scene_data %>%
   select(-brth_dt)
 ```
-
 
 ```{r}
 test_data_set <- scene_data %>%
