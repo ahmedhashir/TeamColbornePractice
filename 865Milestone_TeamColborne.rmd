@@ -55,17 +55,25 @@ scene_pt_fact_filter <- scene_pt_fact %>%
 ###Plots of txn_amt to indicate outliers
 
 #boxplot of txn_amt for the original transaction data
-ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the original transaction data") +
-  xlab("year") + ylab("transaction amount")
+ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+
+  geom_boxplot(outlier.colour = "red", outlier.shape = 1)+
+  labels(x = "year",
+         y = "transaction amount",
+         title = "Plot for the original transaction data")
+ 
 
 #boxplot of txn_amt after filtering transaction data
-ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ ggtitle("Plot for the filtered transaction data") +
-  xlab("year") + ylab("transaction amount")
+ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+
+  geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ 
+  labels(x = "year",
+         y = "transaction amount",
+         title = "Plot for the filtered transaction data")
 
 #histogram of txn_amt 
 ggplot(scene_pt_fact_filter, aes(txn_amt))+
-      geom_histogram(binwidth = 300)+ggtitle("Histogram for transaction amount")+
-  xlab("transaction amount")
+  geom_histogram(binwidth = 300)+
+  labels(x = "transaction amount",
+         title = "Histogram for transaction amount")
 ```
 
 We are aware that our model loses some reliability given these filters. In future iterations, our model will reflect that some transactions that are greater than $0 were later reversed and will be omitted from the model.
@@ -96,15 +104,42 @@ scene_pt_fact <- scene_pt_fact_filter %>%
   group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code, txn_tp_3) %>%
   summarise(txn_amt = sum(txn_amt))
   
-scene_columns <- c("scene_mbr_key","scene_mbr_seq_num","eff_from_tmstamp","eff_to_tmstamp","brth_dt","psnl_post_cd","psnl_prov_state_cd","psnl_city",  "suspended_f","gndr_desc","prefrd_loctn_desc","email_prefnc_desc","ed_lvl_desc","prefrd_show_tm_desc","num_of_hh_pple_desc","movie_gng_frq_ref_desc","mrtl_stat_desc","lang_desc","anul_clndr_code","mo_clndr_code","txn_tp_3","txn_amt", "scene_acty_stat","enrollment_stat_cd","cncl_dt","scene_src_enrollment_dt","scene_mbr_acct_key")
+scene_columns <- c("scene_mbr_key",
+                   "scene_mbr_seq_num",
+                   "eff_from_tmstamp",
+                   "eff_to_tmstamp","brth_dt",
+                   "psnl_post_cd","psnl_prov_state_cd","psnl_city",  
+                   "suspended_f",
+                   "gndr_desc",
+                   "prefrd_loctn_desc",
+                   "email_prefnc_desc",
+                   "ed_lvl_desc",
+                   "prefrd_show_tm_desc",
+                   "num_of_hh_pple_desc",
+                   "movie_gng_frq_ref_desc",
+                   "mrtl_stat_desc",
+                   "lang_desc",
+                   "anul_clndr_code",
+                   "mo_clndr_code",
+                   "txn_tp_3",
+                   "txn_amt", 
+                   "scene_acty_stat",
+                   "enrollment_stat_cd",
+                   "cncl_dt",
+                   "scene_src_enrollment_dt",
+                   "scene_mbr_acct_key")
 
 # Join Customer Dimension Data with Transaction data
 # Excluding reference key columns from joined data
-scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")  %>% 
+scene_data <- left_join(x = scene_mbr_dim, 
+                        y = scene_pt_fact, 
+                        by = "scene_mbr_key")  %>% 
   select(everything())
 
 # Joining scene_data with account data
-scene_data <- left_join(x = scene_data, y = scene_mbr_acct_dim, by = "scene_mbr_acct_key") %>% 
+scene_data <- left_join(x = scene_data, 
+                        y = scene_mbr_acct_dim, 
+                        by = "scene_mbr_acct_key") %>% 
   select(one_of(scene_columns))
 ```
 
@@ -119,7 +154,22 @@ scene_data<- scene_data %>%
 # Removing Birth Year
 scene_data<-scene_data %>%
   select(-brth_dt)
+```
 
+
+```{r}
+test_data_set <- scene_data %>%
+  select(
+    -scene_mbr_key,
+    -scene_mbr_seq_num,
+    -eff_from_tmstamp,
+    -eff_to_tmstamp,
+    -scene_src_enrollment_dt,
+    -scene_mbr_acct_key,
+    -cncl_dt
+  )
+
+test_data_set <- test_data_set %>% mutate_if(is.character, as.factor)
 ```
 
 #Use of h2o because some other feature engineering can't be done in Spark
@@ -197,7 +247,7 @@ data[,factorsList] <- as.factor(data[,factorsList])
 
 # Given that we're planning on using lagged variables, we're hoping the time nature of the prediction problem won't be an issue. However, we may need to find alternative ways to split our data if it doesn't work.
 
-splits <- h2o.splitFrame(data, 0.8)
+splits <- h2o.splitFrame(scene_data, 0.8)
 train <- splits[[1]]
 test <- splits[[2]]
 
