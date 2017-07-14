@@ -42,25 +42,23 @@ I've created the directories in HDFS so that they have the same structure as the
 ```{r}
 in_path = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
 
-scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
 <<<<<<< HEAD
-
-scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
-
-scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
-
-
-=======
-head(scene_mbr_dim, n=10)
-
 scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
 head(scene_mbr_acct_dim, n=10)
 dim(scene_mbr_acct_dim)
 
 scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
-dim(scene_pt_fact)
-head(scene_pt_fact, n=10)
 
+=======
+scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+
+scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
+
+scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+
+head(scene_mbr_dim, n=10)
+
+>>>>>>> ff51734a00a87d62301d3bd721bb93927022a543
 ```
 Rows and Columns of scene_mbr_dim
 ```{r}
@@ -86,8 +84,11 @@ colnames(scene_data)
 summary(scene_data)
 dim(scene_data)
 
+<<<<<<< HEAD
+=======
 #spark_write_parquet(scene_data, "hdfs:///user/sa100006/scene-csv/sample03/clean/")
->>>>>>> 76303570b60e24a591d98728aa5dd75b8bc78c65
+>>>>>>> ff51734a00a87d62301d3bd721bb93927022a543
+
 ```
 
 ## Analyze
@@ -95,8 +96,8 @@ dim(scene_data)
 Now, go forth and use `sparklyr`. For manipulating data, use the same `dplyr` commands (e.g., `filter`, 'group_by`, etc.) that you're used to, and spark will do the right thing. (That is, spark will translate the `dplyr` command into a series of MapReduce jobs under the hood!) For machine learning, use the `sparklyr` `ml_*` commands, e.g., `ml_decision_tree`, `ml_naive_bayes`, etc.
 
 Good luck, grasshopper.
-<<<<<<< HEAD
-=======
+
+
 ```{r}
 scene_data_small <- sample_frac(scene_data, 0.01)
 #Taking sample of sample
@@ -226,7 +227,6 @@ summarise(count=n(), percentage = n()/nrow(scene_mbr_dim))%>%
 arrange(desc(count))
 
 ```
->>>>>>> 76303570b60e24a591d98728aa5dd75b8bc78c65
 
 ## Disconnect from Spark
 
