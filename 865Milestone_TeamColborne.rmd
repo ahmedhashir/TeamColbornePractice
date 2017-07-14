@@ -57,7 +57,7 @@ scene_pt_fact_filter <- scene_pt_fact %>%
 #boxplot of txn_amt for the original transaction data
 ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+
   geom_boxplot(outlier.colour = "red", outlier.shape = 1)+
-  labels(x = "year",
+  labs(x = "year",
          y = "transaction amount",
          title = "Plot for the original transaction data")
  
@@ -65,14 +65,14 @@ ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+
 #boxplot of txn_amt after filtering transaction data
 ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+
   geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ 
-  labels(x = "year",
+  labs(x = "year",
          y = "transaction amount",
          title = "Plot for the filtered transaction data")
 
 #histogram of txn_amt 
 ggplot(scene_pt_fact_filter, aes(txn_amt))+
   geom_histogram(binwidth = 300)+
-  labels(x = "transaction amount",
+  labs(x = "transaction amount",
          title = "Histogram for transaction amount")
 ```
 
