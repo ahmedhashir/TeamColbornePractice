@@ -34,11 +34,30 @@ library(h2o)
 The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_acct_dim* and *scene_pt_fact*
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
-in_path = '/global/project/queens-mma/scene-csv/sample0003/clean/'
+# Spark script
+config <- spark_config() 
+config$'sparklyr.shell.executor-memory' <- "20g" 
+config$'sparklyr.shell.driver-memory' <- "10g" 
+config$spark.yarn.am.memory <- "15g"
 
-scene_mbr_dim <-fread(paste(in_path, 'scene_mbr_dim.csv', sep=""), sep=",")
-scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
-scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
+# Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
+
+sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+
+in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample0003/clean/'
+
+scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+
+scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
+
+scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+
+# R script
+# in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
+# 
+# scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
+# scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
+# scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
 ```
 
 # Selection of Variables and Joining the Tables
@@ -82,16 +101,16 @@ The working code for joining the Spark tables is shown below
 
 ```{r}
 #grouping by member key and arranging seq entry num in desc order so as to have the latest updated account entry
-scene_dim <- scene_mbr_dim %>% 
+scene_dim1 <- scene_mbr_dim %>% 
   group_by(scene_mbr_key,scene_mbr_seq_num) %>%
+  arrange(desc(scene_mbr_seq_num))%>%
+  ungroup() 
+ scene_dim2 <- scene_mbr_dim %>% 
+  group_by(scene_mbr_key) %>%
   arrange(desc(scene_mbr_seq_num)) %>%
-  ungroup()
-
-# Remove Duplicate customer rows by comparing scene_mbr_key
-scene_mbr_dim <- distinct(scene_dim, scene_mbr_key, .keep_all = TRUE)
-
-# Remove Duplicates from Account table by comparing scene_mbr_acct_key
-scene_mbr_acct_dim <- distinct(scene_mbr_acct_dim, scene_mbr_acct_key, .keep_all = TRUE)
+  summarise(scene_mbr_seq_num = max(scene_mbr_seq_num))
+#an alternative to distinct function to delete duplicate entries  
+scene_mbr_dim <- inner_join(scene_dim2,scene_dim1)
 
 # Aggregating transaction amount by the month, year and trans type
 # and only keeping rows where transaction amount between 0 and 10,000 
@@ -167,6 +186,9 @@ test_data_set <- scene_data %>%
     -scene_mbr_acct_key,
     -cncl_dt
   )
+
+h2o.init(nthreads = -1)
+test_data_set <- as.h2o(test_data_set)
 
 test_data_set <- test_data_set %>% mutate_if(is.character, as.factor)
 ```
