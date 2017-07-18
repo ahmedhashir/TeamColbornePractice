@@ -27,6 +27,9 @@ library(data.table)
 library(sparklyr)
 library(rsparkling)
 library(h2o)
+
+options(rsparkling.sparklingwater.version = "2.0.3")
+
 ```
 
 #Loading the data
@@ -34,11 +37,39 @@ library(h2o)
 The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_acct_dim* and *scene_pt_fact*
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
-in_path = '/global/project/queens-mma/scene-csv/sample0003/clean/'
+config <- spark_config() 
+config$'sparklyr.shell.executor-memory' <- "20g" 
+config$'sparklyr.shell.driver-memory' <- "10g" 
+config$spark.yarn.am.memory <- "15g"
 
-scene_mbr_dim <-fread(paste(in_path, 'scene_mbr_dim.csv', sep=""), sep=",")
-scene_mbr_acct_dim <-fread(paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
-scene_pt_fact <-fread(paste(in_path, 'scene_pt_fact.csv', sep=""), sep=",")
+sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+
+in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
+in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample0003/clean/'
+
+# Spark script
+scene_mbr_dim <- spark_read_csv(sc, 
+                                name='scene_mbr_dim', 
+                                path=paste(in_path_spark, 
+                                           'scene_mbr_dim.csv', sep=""), 
+                                header = TRUE, delimiter = ",")
+
+scene_mbr_acct_dim <- spark_read_csv(sc, 
+                                     name='scene_mbr_acct_dim', 
+                                     path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""),
+                                     header = TRUE, 
+                                     delimiter = ",")
+
+scene_pt_fact <- spark_read_csv(sc, 
+                                name='scene_pt_fact', 
+                                path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), 
+                                header = TRUE, 
+                                delimiter = ",")
+
+# R Script
+# scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
+# scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
+# scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
 ```
 
 # Selection of Variables and Joining the Tables
@@ -48,16 +79,19 @@ We have filtered for transactions that are between $0 and $10,000 to eliminate h
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 #Only including the rows where transaction amount between 0 and 10,000 
 scene_pt_fact_filter <- scene_pt_fact %>%
-  filter(txn_amt > 0 & txn_amt <= 10000)
+  filter(txn_amt > 0 & txn_amt <= 10000)%>%
+  
 ```
 
 ```{r,echo = FALSE, message = FALSE, warning = FALSE}
 ###Plots of txn_amt to indicate outliers
 
+### NOTE THESE DON'T WORK UNTIL WE COLLECT THE DATA FROM SPARK!
+
 #boxplot of txn_amt for the original transaction data
 ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+
   geom_boxplot(outlier.colour = "red", outlier.shape = 1)+
-  labels(x = "year",
+  labs(x = "year",
          y = "transaction amount",
          title = "Plot for the original transaction data")
  
@@ -65,14 +99,14 @@ ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+
 #boxplot of txn_amt after filtering transaction data
 ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+
   geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ 
-  labels(x = "year",
+  labs(x = "year",
          y = "transaction amount",
          title = "Plot for the filtered transaction data")
 
 #histogram of txn_amt 
 ggplot(scene_pt_fact_filter, aes(txn_amt))+
   geom_histogram(binwidth = 300)+
-  labels(x = "transaction amount",
+  labs(x = "transaction amount",
          title = "Histogram for transaction amount")
 ```
 
@@ -166,9 +200,18 @@ test_data_set <- scene_data %>%
     -scene_src_enrollment_dt,
     -scene_mbr_acct_key,
     -cncl_dt
-  )
+  ) %>%
+  compute()
 
-test_data_set <- test_data_set %>% mutate_if(is.character, as.factor)
+test_gervais <-
+
+h2o.init(nthreads=-1)
+h2o_test <- as_h2o_frame(sc, scene_pt_fact, strict_version_check = FALSE)
+
+test_data_set <- h2o_test %>% mutate_if(is.character, as.factor)
+
+test_gervais <- as.factor(h2o_test[,mo_clndr_code])
+
 ```
 
 #Use of h2o because some other feature engineering can't be done in Spark
