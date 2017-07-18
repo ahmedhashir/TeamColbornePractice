@@ -40,7 +40,7 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 config <- spark_config() 
 config$'sparklyr.shell.executor-memory' <- "20g" 
 config$'sparklyr.shell.driver-memory' <- "10g" 
-config$spark.yarn.am.memory <- "15g"
+#config$spark.yarn.am.memory <- "15g"
 
 # Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
 
@@ -162,10 +162,6 @@ lagged<-left_join(x= sept_spend, y= pt_6mo, by="scene_mbr_key")%>%
                     left_join(y= pt_12mo, by="scene_mbr_key")%>%
                             left_join(y= pt_18mo, by="scene_mbr_key")
 
-colnames(lagged)<-c("scene_mbr_key", "Sept", "Lag1", "Lag2", "Lag3")
-
-
-  
 scene_columns <- c("scene_mbr_key",
                    "scene_mbr_seq_num",
                    "eff_from_tmstamp",
