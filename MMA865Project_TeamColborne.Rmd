@@ -2,7 +2,7 @@
 title: "MMA 865 Final Project"
 output: html_document
 date: "Summer 2017"
-author: "My Team Name"
+author: "Team Colborne"
 ---
 
 ```{r setup, include=FALSE}
@@ -42,23 +42,17 @@ I've created the directories in HDFS so that they have the same structure as the
 ```{r}
 in_path = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
 
-<<<<<<< HEAD
+scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+head(scene_mbr_dim, n=10)
+
 scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
 head(scene_mbr_acct_dim, n=10)
 dim(scene_mbr_acct_dim)
 
 scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+dim(scene_pt_fact)
+head(scene_pt_fact, n=10)
 
-=======
-scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
-
-scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
-
-scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
-
-head(scene_mbr_dim, n=10)
-
->>>>>>> ff51734a00a87d62301d3bd721bb93927022a543
 ```
 Rows and Columns of scene_mbr_dim
 ```{r}
@@ -75,7 +69,7 @@ Rows and Columns of scene_pt_fact
 dim(scene_pt_fact)  
 colnames(scene_pt_fact)
 ```
-## Combine Data
+## Combine Data i.e. join files
 ```{r}
 
 scene_data <- left_join(x = scene_mbr_dim, y = scene_pt_fact, by = "scene_mbr_key")
@@ -84,11 +78,7 @@ colnames(scene_data)
 summary(scene_data)
 dim(scene_data)
 
-<<<<<<< HEAD
-=======
 #spark_write_parquet(scene_data, "hdfs:///user/sa100006/scene-csv/sample03/clean/")
->>>>>>> ff51734a00a87d62301d3bd721bb93927022a543
-
 ```
 
 ## Analyze
@@ -97,7 +87,7 @@ Now, go forth and use `sparklyr`. For manipulating data, use the same `dplyr` co
 
 Good luck, grasshopper.
 
-
+##Taking sample of sample
 ```{r}
 scene_data_small <- sample_frac(scene_data, 0.01)
 #Taking sample of sample
@@ -105,8 +95,10 @@ dim(scene_data_small)
 scene_data_r <- collect(scene_data_small)
 str(scene_data_r)
 colnames(scene_data_r)
+```
 
-#Feature Engineering
+##Feature Engineering
+```{r}
 
 #Converting Characters variables into Factors
 
