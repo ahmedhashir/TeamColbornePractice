@@ -58,7 +58,7 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 #scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
 
 #R script
-in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
+in_path_r = '/global/project/queens-mma/scene-csv/sample03/clean/'
 
 scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
@@ -85,6 +85,8 @@ The working code for joining the Spark tables is shown below
 
 ```{r}
 #grouping by member key and arranging seq entry num in desc order so as to have the latest updated account entry
+
+start<-Sys.time()
 
 scene_dim1 <- scene_mbr_dim %>% 
   group_by(scene_mbr_key,scene_mbr_seq_num) %>%
@@ -323,6 +325,10 @@ scene_columns <- c("scene_mbr_key",
 scene_data <- scene_mbr_dim%>%
                   select(one_of(scene_columns))%>%
               inner_join(y=scene_joined, by = "scene_mbr_key")
+
+
+finish<-Sys.time()
+print(finish-start)
   
 ```
 
