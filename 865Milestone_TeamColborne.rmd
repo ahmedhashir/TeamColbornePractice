@@ -58,7 +58,7 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 #scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
 
 #R script
-in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
+in_path_r = '/global/project/queens-mma/scene-csv/sample03/clean/'
 
 scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
