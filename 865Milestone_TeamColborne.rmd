@@ -58,7 +58,7 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 #scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
 
 #R script
-in_path_r = '/global/project/queens-mma/scene-csv/sample03/clean/'
+in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
 
 scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
@@ -72,7 +72,7 @@ scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
 We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below are the box plots to indicate the outliers, this was used as substantiation to remove high rollers. The points highlighted in red in the box plots are the outliers, only the transaction amounts between $0 and $10000 are considered, elimating the other outliers.
 
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
-#Only including the rows where transaction amount between 0 and 10,000 
+#First let's filter for transactions that are between 0 and 10k
 scene_pt_fact_filter <- scene_pt_fact %>%
   filter(txn_amt > 0 & txn_amt <= 10000)
   
@@ -105,20 +105,27 @@ scene_mbr_dim <- inner_join(scene_dim2,scene_dim1)
 # however, team is aware of reversal transactions and will take care of it in the
 # final model.
 
-
-
-#We want to omit the transaction type so that each customer has one entry per month
-
-scene_pt_fact <- scene_pt_fact_filter %>%
-  group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
-  summarise(txn_amt = sum(txn_amt))
-
-
-#Initialize the dataframe that we'll use to create the lagged variables and then chain joins onto:
-scene_joined <- scene_pt_fact%>%
+#Initialize the dataframe that we'll use to create the lagged variables
+scene_joined <- scene_pt_fact_filter%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "September")%>%
   group_by(scene_mbr_key)%>%
   summarise(sept_2016=sum(txn_amt))
+
+
+#Now that we've created the data frame on which we'll join lagged variables, let's create a "loyalty" dataset that will only include transactions from the customers who spent money in september 2016. It will be computationally faster than using the big dataset for each join.
+scene_loyalty_pt<-scene_pt_fact_filter%>%
+  inner_join(y=scene_joined, by="scene_mbr_key")%>%
+  select(-sept_2016)
+
+
+
+#We want to omit the transaction type so that each customer has one entry per month
+#txn_amt is the dollar value of transactions, cinema_pt_n is the number of transactions at a cinema
+scene_lag_pt <- scene_pt_fact_filter %>%
+  group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
+  summarise(txn_amt = sum(txn_amt), cinema_pt_n = sum(txn_tp_3=="cin"))
+
+
 
 #Now copy and paste the slightly altered code for each month and join it onto the original dataframe
 
