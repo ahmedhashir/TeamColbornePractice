@@ -39,30 +39,33 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 
 
 # Spark script
-# config <- spark_config() 
-# config$'sparklyr.shell.executor-memory' <- "20g" 
-# config$'sparklyr.shell.driver-memory' <- "10g" 
-# #config$spark.yarn.am.memory <- "15g"
+ config <- spark_config() 
+ config$'sparklyr.shell.executor-memory' <- "20g" 
+ config$'sparklyr.shell.driver-memory' <- "10g" 
+ config$spark.yarn.am.memory <- "15g"
 
 # Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
 # 
+start<-Sys.time()
+sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
 
-#sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
 
-#in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample0003/clean/'
+scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
 
-#scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
 
-#scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
+scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+finish<-Sys.time()
 
-#scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+print(finish-start)
 
 #R script
-in_path_r = '/global/project/queens-mma/scene-csv/sample03/clean/'
-
-scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
-scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
-scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
+# in_path_r = '/global/project/queens-mma/scene-csv/sample03/clean/'
+# 
+# scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
+# scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
+# scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
 
 
 ```
@@ -122,7 +125,7 @@ scene_loyalty_pt <- scene_loyalty_pt %>%
 
 
 
-#Now copy and paste the slightly altered code for each month and join it onto the original dataframe
+head(#Now copy and paste the slightly altered code for each month and join it onto the original dataframe
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "August")%>%
