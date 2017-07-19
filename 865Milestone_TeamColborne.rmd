@@ -115,158 +115,158 @@ scene_pt_fact <- scene_pt_fact_filter %>%
 
 
 #Initialize the dataframe that we'll use to create the lagged variables and then chain joins onto:
-scene_data <- scene_pt_fact%>%
+scene_joined <- scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "September")%>%
   group_by(scene_mbr_key)%>%
   summarise(sept_2016=sum(txn_amt))
 
 #Now copy and paste the slightly altered code for each month and join it onto the original dataframe
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "August")%>%
   group_by(scene_mbr_key)%>%
   summarise(aug_2016=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "July")%>%
   group_by(scene_mbr_key)%>%
   summarise(jul_2016=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "June")%>%
   group_by(scene_mbr_key)%>%
   summarise(jun_2016=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "May")%>%
   group_by(scene_mbr_key)%>%
   summarise(may_2016=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "April")%>%
   group_by(scene_mbr_key)%>%
   summarise(apr_2016=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "March")%>%
   group_by(scene_mbr_key)%>%
   summarise(mar_2016=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "February")%>%
   group_by(scene_mbr_key)%>%
   summarise(feb_2016=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "January")%>%
   group_by(scene_mbr_key)%>%
   summarise(jan_2016=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
 #Now let's do it for 2015 variables
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "December")%>%
   group_by(scene_mbr_key)%>%
   summarise(dec_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "November")%>%
   group_by(scene_mbr_key)%>%
   summarise(nov_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "October")%>%
   group_by(scene_mbr_key)%>%
   summarise(oct_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "September")%>%
   group_by(scene_mbr_key)%>%
   summarise(sep_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "August")%>%
   group_by(scene_mbr_key)%>%
   summarise(aug_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "July")%>%
   group_by(scene_mbr_key)%>%
   summarise(jul_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "June")%>%
   group_by(scene_mbr_key)%>%
   summarise(jun_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "May")%>%
   group_by(scene_mbr_key)%>%
   summarise(may_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "April")%>%
   group_by(scene_mbr_key)%>%
   summarise(apr_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "March")%>%
   group_by(scene_mbr_key)%>%
   summarise(mar_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "February")%>%
   group_by(scene_mbr_key)%>%
   summarise(feb_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "January")%>%
   group_by(scene_mbr_key)%>%
   summarise(jan_2015=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2014 & mo_clndr_code == "December")%>%
   group_by(scene_mbr_key)%>%
   summarise(dec_2014=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2014 & mo_clndr_code == "November")%>%
   group_by(scene_mbr_key)%>%
   summarise(nov_2014=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2014 & mo_clndr_code == "October")%>%
   group_by(scene_mbr_key)%>%
   summarise(oct_2014=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
-scene_data<-scene_pt_fact%>%
+scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2014 & mo_clndr_code == "September")%>%
   group_by(scene_mbr_key)%>%
   summarise(sep_2014=sum(txn_amt))%>%
-  right_join(y=scene_data, by="scene_mbr_key")
+  right_join(y=scene_joined, by="scene_mbr_key")
 
 #okay now lets join it onto the demo data.
 
@@ -285,31 +285,20 @@ scene_columns <- c("scene_mbr_key",
                    "movie_gng_frq_ref_desc",
                    "mrtl_stat_desc",
                    "lang_desc",
-                   "anul_clndr_code",
-                   "mo_clndr_code",
-                   "txn_amt", 
-                   "scene_acty_stat",
-                   "enrollment_stat_cd",
-                   "cncl_dt",
-                   "scene_src_enrollment_dt",
-                   "scene_mbr_acct_key")
+                   "scene_acty_stat")
 
-#Now lets check out a model
-model<-lm(sept_2016~.,data=scene_data)
 
-# Join Customer Dimension Data with Transaction data
+#Join Customer Dimension Data with scene_data
 # Excluding reference key columns from joined data
-#scene_data <- left_join(x = scene_mbr_dim, 
-                   #     y = scene_pt_fact, 
-                  #      by = "scene_mbr_key")  %>% 
-  #select(everything())
+# scene_data<- inner_join(x = scene_mbr_dim, 
+#                     y = scene_joined, 
+#                     by = "scene_mbr_key")%>%
+#               select(one_of(scene_columns))
 
 # Joining scene_data with account data
-#scene_data <- left_join(x = scene_data, 
-     #                   y = scene_mbr_acct_dim, 
-     #                   by = "scene_mbr_acct_key") %>% 
-      #            select(one_of(scene_columns))%>%
-     #         inner_join(y=lagged, by = "scene_mbr_key")
+scene_data <- scene_mbr_dim%>%
+                  select(one_of(scene_columns))%>%
+              inner_join(y=scene_joined, by = "scene_mbr_key")
   
 ```
 
@@ -319,24 +308,19 @@ Decision to keep location data and omit some highly correlated variables from da
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 #Converting birth year to age
 scene_data<- scene_data %>% 
-  mutate(Age = 2017 - brth_dt)
-
-# Removing Birth Year
-scene_data<-scene_data %>%
+  mutate(Age = 2017 - brth_dt)%>%
   select(-brth_dt)
+  
 ```
 
 ```{r}
 scene_data <- scene_data %>%
   select(
-    -scene_mbr_key,
+     -scene_mbr_key,
     -scene_mbr_seq_num,
     -eff_from_tmstamp,
-    -eff_to_tmstamp,
-    -scene_src_enrollment_dt,
-    -scene_mbr_acct_key,
-    -cncl_dt
-  )
+    -eff_to_tmstamp
+        )
 
 
 
@@ -345,13 +329,6 @@ scene_data <- scene_data %>%
 
 
 #Use of h2o because some other feature engineering can't be done in Spark
-
-```{r}
-h2o.init(nthreads = -1)
-
-scene_data <- as.h2o(scene_data)
-
-```
 
 ```{r,echo = FALSE, message = FALSE, warning = FALSE}
 
@@ -427,7 +404,7 @@ train <- splits[[1]]
 test <- splits[[2]]
 
 # Tell h2o which are response variables and which are features
-y <- "txn_amt"  
+y <- "sept_2016"  
 x <- names[names(scene_data)!=y]
 
 
