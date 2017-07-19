@@ -218,6 +218,66 @@ group_by(scene_data_r, mrtl_stat_desc_f)%>%
 summarise(count=n(), percentage = n()/nrow(scene_mbr_dim))%>%
 arrange(desc(count))
 
+rm(list=ls())
+library(tidyverse)
+library(data.table)
+library(sparklyr)
+library(rsparkling)
+library(h2o)
+
+sc <- spark_connect("local")
+
+h2o.init()
+
+#R script
+in_path_r = 'C:/R_WD/865/'
+
+scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
+scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
+scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
+
+colnames(scene_pt_fact)
+
+get_month <- function(name){
+  case_when(
+    name == "January" ~ 1,
+    name == "February" ~ 2,
+    name == "March" ~ 3,
+    name == "April" ~ 4,
+    name == "May" ~ 5,
+    name == "June" ~ 6,
+    name == "July" ~ 7,
+    name == "August" ~ 8,
+    name == "September" ~ 9,
+    name == "October" ~ 10,
+    name == "November" ~ 11,
+    name == "December" ~ 12
+  )
+}
+
+years <- c(2007:2016)
+months <- c(1:12)
+
+for (year in years){
+  for (month in months){
+    x <- cbind(year,month)
+    year_months <- rbind(year_months, x)
+  }
+}
+
+mem <- scene_mbr_dim %>%
+      
+
+year_months
+
+test2<- scene_pt_fact %>%
+        filter(txn_amt > 0 & txn_amt <= 10000)  %>%
+        mutate(month_code = get_month(name = mo_clndr_code))  %>% 
+        arrange(scene_mbr_key,anul_clndr_code,month_code) %>% 
+        mutate(lag1=lag(txn_amt),lag2=lag(txn_amt,2),movave=(lag1+lag2)/2) %>%
+        select(scene_mbr_key,anul_clndr_code,mo_clndr_code,month_code,txn_amt,lag1,lag2,movave)
+
+
 ```
 
 ## Disconnect from Spark

@@ -27,8 +27,6 @@ library(data.table)
 library(sparklyr)
 library(rsparkling)
 library(h2o)
-
-
 ```
 
 #Loading the data
@@ -36,7 +34,6 @@ library(h2o)
 The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_acct_dim* and *scene_pt_fact*
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
-
 
 # Spark script
  config <- spark_config() 
@@ -62,6 +59,7 @@ print(finish-start)
 
 #R script
 # in_path_r = '/global/project/queens-mma/scene-csv/sample03/clean/'
+
 # 
 # scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
 # scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
@@ -119,10 +117,12 @@ scene_loyalty_pt<-scene_pt_fact_filter%>%
 
 #We want to omit the transaction type so that each customer has one entry per month
 #txn_amt is the dollar value of transactions, cinema_pt_n is the number of transactions at a cinema
+# scene_loyalty_pt <- scene_loyalty_pt %>%
+#   group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
+#   summarise(txn_amt = sum(txn_amt), cin_pt_n = sum(txn_tp_3=="cin"))
 scene_loyalty_pt <- scene_loyalty_pt %>%
   group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
-  summarise(txn_amt = sum(txn_amt), cin_pt_n = sum(txn_tp_3=="cin"))
-
+  summarise(txn_amt = sum(txn_amt), cin_pt_n = sum(ifelse(txn_tp_3=="cin",1, 0)))
 
 
 head(#Now copy and paste the slightly altered code for each month and join it onto the original dataframe
