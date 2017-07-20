@@ -76,6 +76,11 @@ We have filtered for transactions that are between $0 and $10,000 to eliminate h
 #First let's filter for transactions that are between 0 and 10k
 scene_pt_fact_filter <- scene_pt_fact %>%
   filter(txn_amt > 0 & txn_amt <= 10000)
+#this table has the first transaction date for each customer
+first_purchase <- scene_pt_fact_filter %>%
+    mutate(yr_month = as.Date(time_lvl_end_dt), format = "%Y%m") %>%
+  group_by(scene_mbr_key) %>%
+  summarise(first_transaction = min(yr_month))
   
 ```
 
@@ -358,7 +363,9 @@ Decision to keep location data and omit some highly correlated variables from da
 scene_data<- scene_data %>% 
   mutate(Age = 2017 - brth_dt)%>%
   select(-brth_dt)
-  
+#Joining the final table with the first purchase date info
+scene_data <- scene_data %>% 
+              left_join(y=first_purchase, by ="scene_mbr_key")  
 ```
 
 ```{r}
@@ -424,7 +431,7 @@ The following code chunk presents the skeleton for the H2O models.
 
 ######## Following Skeleton Code may not completely run as of now #######
 
-h2o.init(nthreads = -1, max_mem_size="20g")
+h2o.init(nthreads = -1)
 
 scene_data <- as.h2o(scene_data)
 
