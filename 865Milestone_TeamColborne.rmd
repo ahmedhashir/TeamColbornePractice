@@ -65,7 +65,6 @@ scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
 scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
 
-
 ```
 
 # Selection of Variables and Joining the Tables
@@ -120,13 +119,25 @@ scene_loyalty_pt<-scene_pt_fact_filter%>%
 
 #We want to omit the transaction type so that each customer has one entry per month
 #txn_amt is the dollar value of transactions, cinema_pt_n is the number of transactions at a cinema
-
 scene_loyalty_pt <- scene_loyalty_pt %>%
   group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
   summarise(txn_amt = sum(txn_amt), 
             cin_pt_n = sum(ifelse(txn_tp_3=="cin",1, 0)),
-            n_pt = n())%>%
-  ungroup()
+            n_pt = n(),
+            issuance_amt = sum(ifelse(txn_tp_1=="issuance",txn_amt, 0)),
+            reversal_amt = sum(ifelse(txn_tp_1=="reversal",txn_amt, 0)),
+            issuance_pt = sum(ifelse(txn_tp_1=="issuance",pt, 0)),
+            reversal_pt = sum(ifelse(txn_tp_1=="reversal",pt, 0)),
+            redeem_amt = sum(ifelse(txn_tp_1=="redemption",txn_amt, 0)),
+            redeem_pt = sum(ifelse(txn_tp_1=="redemption",pt, 0)),
+            cin_pt = sum(ifelse(txn_tp_3=="cin",pt, 0)),
+            non_cin_pt = sum(ifelse(txn_tp_3!="cin",pt, 0)),
+            cin_amt = sum(ifelse(txn_tp_3=="cin",txn_amt, 0)),
+            non_cin_amt = sum(ifelse(txn_tp_3!="cin",txn_amt, 0)),
+            promo_bonus_pt = sum(ifelse(txn_tp_2=="promobonus",pt, 0)),
+            enroll_bonus_pt = sum(ifelse(txn_tp_2=="enrollbonus",pt, 0)),
+            regular_pt = sum(ifelse(txn_tp_2=="regular",pt, 0))
+            )%>% ungroup()
 
 
 #Now copy and paste the slightly altered code for each month and join it onto the original dataframe
@@ -180,7 +191,17 @@ scene_joined<-scene_loyalty_pt%>%
          n_feb_2016=n_pt)%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
+# Logic for OUR DEFINITION OF LOYAL CUSTOMER 
+# Customers who have spend in every last 6 months
+scene_joined<-scene_loyalty_pt %>%
+  right_join(y=scene_joined, by="scene_mbr_key") %>%
+  filter(feb_2016 > 0 & mar_2016 > 0 & apr_2016 > 0 
+         & may_2016 > 0 & jun_2016 > 0 & jul_2016 > 0 )%>%
+  select(everything())
+
 head(scene_joined)
+
+
 ```
 
 
