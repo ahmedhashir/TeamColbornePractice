@@ -226,6 +226,7 @@ library(rsparkling)
 library(h2o)
 
 sc <- spark_connect("local")
+connection_is_open(sc)
 
 h2o.init()
 
@@ -236,7 +237,12 @@ scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
 scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
 
+scene_mbr_dim <- copy_to(sc, scene_mbr_dim)
+scene_mbr_acct_dim <- copy_to(sc, scene_mbr_acct_dim)
+scene_pt_fact <- copy_to(sc, scene_pt_fact)   
+
 colnames(scene_pt_fact)
+dim(scene_pt_fact)
 
 get_month <- function(name){
   case_when(
@@ -257,6 +263,7 @@ get_month <- function(name){
 
 years <- c(2007:2016)
 months <- c(1:12)
+year_months <- NULL
 
 for (year in years){
   for (month in months){
@@ -265,17 +272,32 @@ for (year in years){
   }
 }
 
-mem <- scene_mbr_dim %>%
-      
+mem <- scene_mbr_dim %>% year_months
 
-year_months
-
-test2<- scene_pt_fact %>%
+test2 <- scene_pt_fact %>%
         filter(txn_amt > 0 & txn_amt <= 10000)  %>%
-        mutate(month_code = get_month(name = mo_clndr_code))  %>% 
+        mutate(month_code = if_else(mo_clndr_code == "January", as.integer(1),
+                            if_else(mo_clndr_code == "February", as.integer(2), 
+                            if_else(mo_clndr_code == "March", as.integer(3), 
+                            if_else(mo_clndr_code == "April", as.integer(4),                                                
+                            if_else(mo_clndr_code == "May", as.integer(5), 
+                            if_else(mo_clndr_code == "June", as.integer(6), 
+                            if_else(mo_clndr_code == "July", as.integer(7), 
+                            if_else(mo_clndr_code == "August", as.integer(8), 
+                            if_else(mo_clndr_code == "September", as.integer(9), 
+                            if_else(mo_clndr_code == "October", as.integer(10), 
+                            if_else(mo_clndr_code == "November", as.integer(11), 
+                            if_else(mo_clndr_code == "December", as.integer(12), mo_clndr_code )))))))))))))       %>%
+        #groupby(scene_mbr_key,anul_clndr_code) %>%
         arrange(scene_mbr_key,anul_clndr_code,month_code) %>% 
-        mutate(lag1=lag(txn_amt),lag2=lag(txn_amt,2),movave=(lag1+lag2)/2) %>%
-        select(scene_mbr_key,anul_clndr_code,mo_clndr_code,month_code,txn_amt,lag1,lag2,movave)
+        mutate(lag1=lag(x = txn_amt),lag2=lag(x = txn_amt),movave=(lag1+lag2)/2,prev_member = lag(x = scene_mbr_key), prev_anul_clndr=lag(anul_clndr_code), prev_month=lag(month_code))%>%
+        mutate(cond=if_else(prev_member==scene_mbr_key, 
+                    if_else(prev_anul_clndr==anul_clndr_code,
+                    if_else(prev_month==month_code,1,0),0),txn_amt)) %>%
+        select(scene_mbr_key,anul_clndr_code,month_code,txn_amt,lag1,lag2,movave,prev_member,cond)
+        
+dim(test2)
+head(test2, n = 20)
 
 
 ```
