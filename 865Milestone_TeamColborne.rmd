@@ -36,34 +36,34 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 ```{r, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 
 # Spark script
- config <- spark_config() 
- config$'sparklyr.shell.executor-memory' <- "30g" 
- config$'sparklyr.shell.driver-memory' <- "10g" 
- config$spark.yarn.am.memory <- "15g"
+ # config <- spark_config() 
+ # config$'sparklyr.shell.executor-memory' <- "30g" 
+ # config$'sparklyr.shell.driver-memory' <- "10g" 
+ # config$spark.yarn.am.memory <- "15g"
 
 # Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
 # 
 start<-Sys.time()
-sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
-
-in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
-
-scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
-
-scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
-
-scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+# sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+# 
+# in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample0003/clean/'
+# 
+# scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+# 
+# scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
+# 
+# scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
 finish<-Sys.time()
 
 print(finish-start)
 
 #R script
-# in_path_r = '/global/project/queens-mma/scene-csv/sample03/clean/'
+in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
 
-# 
-# scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
-# scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
-# scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
+
+scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
+scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
+scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
 
 
 ```
@@ -108,60 +108,81 @@ scene_joined <- scene_pt_fact_filter%>%
   group_by(scene_mbr_key)%>%
   summarise(aug_2016=sum(txn_amt))
 
-
 #Now that we've created the data frame on which we'll join lagged variables, let's create a "loyalty" dataset that will only include transactions from the customers who spent money in september 2016. It will be computationally faster than using the big dataset for each join.
 scene_loyalty_pt<-scene_pt_fact_filter%>%
   inner_join(y=scene_joined, by="scene_mbr_key")%>%
   select(-aug_2016)
 
-
 #We want to omit the transaction type so that each customer has one entry per month
 #txn_amt is the dollar value of transactions, cinema_pt_n is the number of transactions at a cinema
-# scene_loyalty_pt <- scene_loyalty_pt %>%
-#   group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
-#   summarise(txn_amt = sum(txn_amt), cin_pt_n = sum(txn_tp_3=="cin"))
+
 scene_loyalty_pt <- scene_loyalty_pt %>%
   group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
-  summarise(txn_amt = sum(txn_amt), cin_pt_n = sum(ifelse(txn_tp_3=="cin",1, 0)))
+  summarise(txn_amt = sum(txn_amt), 
+            cin_pt_n = sum(ifelse(txn_tp_3=="cin",1, 0)),
+            n_pt = n())%>%
+  ungroup()
 
 
 #Now copy and paste the slightly altered code for each month and join it onto the original dataframe
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "July")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(jul_2016=sum(txn_amt))%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  rename(jul_2016=txn_amt,
+         jul_2016_cin=cin_pt_n,
+         n_jul_2016=n_pt)%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "June")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(jun_2016=sum(txn_amt))%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  rename(jun_2016=txn_amt,
+         jun_2016_cin=cin_pt_n,
+         n_jun_2016=n_pt)%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "May")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(may_2016=sum(txn_amt))%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  rename(may_2016=txn_amt,
+         may_2016_cin=cin_pt_n,
+         n_may_2016=n_pt)%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "April")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(apr_2016=sum(txn_amt))%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  rename(apr_2016=txn_amt,
+         apr_2016_cin=cin_pt_n,
+         n_apr_2016=n_pt)%>%
   right_join(y=scene_joined, by="scene_mbr_key")
+
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "March")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(mar_2016=sum(txn_amt))%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  rename(mar_2016=txn_amt,
+         mar_2016_cin=cin_pt_n,
+         n_mar_2016=n_pt)%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "February")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(feb_2016=sum(txn_amt))%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  rename(feb_2016=txn_amt,
+         feb_2016_cin=cin_pt_n,
+         n_feb_2016=n_pt)%>%
   right_join(y=scene_joined, by="scene_mbr_key")
+
+head(scene_joined)
+```
+
+
+
+
+
+```{r Joins, echo=TRUE}
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "January")%>%
@@ -427,6 +448,8 @@ splits <- h2o.splitFrame(scene_data, 0.8)
 train <- splits[[1]]
 test <- splits[[2]]
 
+
+
 # Tell h2o which are response variables and which are features
 y <- "aug_2016"  
 x <- names[names(scene_data)!=y]
@@ -442,10 +465,11 @@ x <- names[names(scene_data)!=y]
 # RF_Defaults is the default random forest, using ntrees = 50 and maxdepth = 20
 # We have set it up so we can do hyperparameter tuning afterwards
 
-m_rf_default <- h2o.randomForest(x, y, train, nfolds = 10, model_id = "RF_defaults")
+m_rf_default <- h2o.randomForest(x, y, train, nfolds = 2, model_id = "RF_defaults")
 
 # Show the performance on the test set
 h2o.performance(m_rf_default, test)
+
 
 # Here's how we plan to do parameter tuning!
 g_rf <- h2o.grid("randomForest",
@@ -501,6 +525,43 @@ g_glm <- h2o.grid("glm",
 glm_grid <- h2o.getGrid(g_glm@grid_id, sort_by = "r2", decreasing = TRUE)
 best_glm_model_id <- glm_grid@model_ids[[1]]
 m_glm_tuned <- h2o.getModel(best_glm_model_id)
+
+```
+
+```{r Visualize Residuals, echo=FALSE}
+#The following was done in R for speed purposes
+
+#First lets build a dataframe with the h2o test set
+test_dataframe<-as.data.frame(test)
+
+#Now we need to make the predictions
+
+rf_fitted_h2o<-h2o.predict(m_rf_default, test)
+rf_fitted<-as.vector(rf_fitted_h2o)
+
+gbm_fitted_h2o<-h2o.predict(m_gbm_default, test)
+gbm_fitted<-as.vector(gbm_fitted_h2o)
+
+#gbm2 is going to be the tuned gbm model so we can compare
+
+gbm2_fitted_h2o<-h2o.predict(g_gbm, test)
+gbm2_fitted<-as.vector(gbm2_fitted_h2o)
+
+#ggplot2 likes all your data to be in the same dataframe, so let's do that now
+
+predictions<-data.frame(cbind(test_dataframe$aug_2016, rf_fitted, gbm_fitted))
+colnames(predictions)<-c("actual", "rf","gbm")
+
+
+rf_res<-ggplot(predictions, aes(x=actual))+
+  geom_jitter(aes(y=rf))
+
+gbm_res<-ggplot(predictions, aes(x=actual))+
+  geom_jitter(aes(y=gbm))
+
+library(gridExtra)
+grid.arrange(gbm_res, rf_res, ncol=1,nrow=2,
+         top=("0003 Sample Residuals"))
 
 ```
 
