@@ -37,7 +37,7 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 
 # Spark script
  config <- spark_config() 
- config$'sparklyr.shell.executor-memory' <- "20g" 
+ config$'sparklyr.shell.executor-memory' <- "30g" 
  config$'sparklyr.shell.driver-memory' <- "10g" 
  config$spark.yarn.am.memory <- "15g"
 
@@ -104,15 +104,15 @@ scene_mbr_dim <- inner_join(scene_dim2,scene_dim1)
 
 #Initialize the dataframe that we'll use to create the lagged variables
 scene_joined <- scene_pt_fact_filter%>%
-  filter(anul_clndr_code == 2016 & mo_clndr_code == "September")%>%
+  filter(anul_clndr_code == 2016 & mo_clndr_code == "August")%>%
   group_by(scene_mbr_key)%>%
-  summarise(sept_2016=sum(txn_amt))
+  summarise(aug_2016=sum(txn_amt))
 
 
 #Now that we've created the data frame on which we'll join lagged variables, let's create a "loyalty" dataset that will only include transactions from the customers who spent money in september 2016. It will be computationally faster than using the big dataset for each join.
 scene_loyalty_pt<-scene_pt_fact_filter%>%
   inner_join(y=scene_joined, by="scene_mbr_key")%>%
-  select(-sept_2016)
+  select(-aug_2016)
 
 
 #We want to omit the transaction type so that each customer has one entry per month
@@ -125,13 +125,7 @@ scene_loyalty_pt <- scene_loyalty_pt %>%
   summarise(txn_amt = sum(txn_amt), cin_pt_n = sum(ifelse(txn_tp_3=="cin",1, 0)))
 
 
-head(#Now copy and paste the slightly altered code for each month and join it onto the original dataframe
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2016 & mo_clndr_code == "August")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(aug_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+#Now copy and paste the slightly altered code for each month and join it onto the original dataframe
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "July")%>%
@@ -409,13 +403,10 @@ The following code chunk presents the skeleton for the H2O models.
 
 ######## Following Skeleton Code may not completely run as of now #######
 
-h2o.init(nthreads = -1)
+h2o.init(nthreads = -1, max_mem_size="20g")
 
 scene_data <- as.h2o(scene_data)
 
-#Check out the structure to confirm it converted properly.
-
-str(scene_data)
 
 # Convert factor variables
 # Note: This is not possible in sparklyr, but works perfectly in H2O!
@@ -437,9 +428,13 @@ train <- splits[[1]]
 test <- splits[[2]]
 
 # Tell h2o which are response variables and which are features
-y <- "sept_2016"  
+y <- "aug_2016"  
 x <- names[names(scene_data)!=y]
 
+
+```
+
+```{r}
 
 # Building the model! 
 # nfolds tells it to use 10 fold cross-validation, note that we won't be doing this on the large data set, just on the sample.
