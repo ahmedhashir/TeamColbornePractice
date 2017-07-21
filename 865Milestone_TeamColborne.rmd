@@ -74,7 +74,7 @@ We have filtered for transactions that are between $0 and $10,000 to eliminate h
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 #First let's filter for transactions that are between 0 and 10k
 scene_pt_fact_filter <- scene_pt_fact %>%
-  filter(txn_amt > 0 & txn_amt <= 10000)
+  filter(txn_amt <= 10000)
 #this table has the first transaction date for each customer
 first_purchase <- scene_pt_fact_filter %>%
     mutate(yr_month = as.Date(time_lvl_end_dt), format = "%Y%m") %>%
@@ -143,60 +143,184 @@ scene_loyalty_pt <- scene_loyalty_pt %>%
 #Now copy and paste the slightly altered code for each month and join it onto the original dataframe
 
 scene_joined<-scene_loyalty_pt%>%
+  filter(anul_clndr_code == 2016 & mo_clndr_code == "August")%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
+         reversal_pt,redeem_amt,redeem_pt,cin_pt,non_cin_pt,cin_amt,non_cin_amt,
+         promo_bonus_pt,enroll_bonus_pt,regular_pt)%>%
+  rename(aug_2016=txn_amt,
+         aug_2016_cin=cin_pt_n,
+         n_aug_2016=n_pt,
+         aug_2016_issuance_amt=issuance_amt,
+         aug_2016_reversal_amt=reversal_amt,
+         aug_2016_issuance_pt=issuance_pt,
+         aug_2016_reversal_pt=reversal_pt,
+         aug_2016_redeem_amt=redeem_amt,
+         aug_2016_redeem_pt=redeem_pt,
+         aug_2016_cin_pt=cin_pt,
+         aug_2016_non_cin_pt=non_cin_pt,
+         aug_2016_non_cin_amt=cin_amt,
+         aug_2016_non_non_cin_amt=non_cin_amt,
+         aug_2016_non_promo_bonus_pt=promo_bonus_pt,
+         aug_2016_non_enroll_bonus_pt=enroll_bonus_pt,
+         aug_2016_non_regular_pt=regular_pt
+         )%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "July")%>%
-  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
+         reversal_pt,redeem_amt,redeem_pt,cin_pt,non_cin_pt,cin_amt,non_cin_amt,
+         promo_bonus_pt,enroll_bonus_pt,regular_pt)%>%
   rename(jul_2016=txn_amt,
          jul_2016_cin=cin_pt_n,
-         n_jul_2016=n_pt)%>%
+         n_jul_2016=n_pt,
+         jul_2016_issuance_amt=issuance_amt,
+         jul_2016_reversal_amt=reversal_amt,
+         jul_2016_issuance_pt=issuance_pt,
+         jul_2016_reversal_pt=reversal_pt,
+         jul_2016_redeem_amt=redeem_amt,
+         jul_2016_redeem_pt=redeem_pt,
+         jul_2016_cin_pt=cin_pt,
+         jul_2016_non_cin_pt=non_cin_pt,
+         jul_2016_non_cin_amt=cin_amt,
+         jul_2016_non_non_cin_amt=non_cin_amt,
+         jul_2016_non_promo_bonus_pt=promo_bonus_pt,
+         jul_2016_non_enroll_bonus_pt=enroll_bonus_pt,
+         jul_2016_non_regular_pt=regular_pt
+         )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "June")%>%
-  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
+         reversal_pt,redeem_amt,redeem_pt,cin_pt,non_cin_pt,cin_amt,non_cin_amt,
+         promo_bonus_pt,enroll_bonus_pt,regular_pt)%>%
   rename(jun_2016=txn_amt,
          jun_2016_cin=cin_pt_n,
-         n_jun_2016=n_pt)%>%
+         n_jun_2016=n_pt,
+         jun_2016_issuance_amt=issuance_amt,
+         jun_2016_reversal_amt=reversal_amt,
+         jun_2016_issuance_pt=issuance_pt,
+         jun_2016_reversal_pt=reversal_pt,
+         jun_2016_redeem_amt=redeem_amt,
+         jun_2016_redeem_pt=redeem_pt,
+         jun_2016_cin_pt=cin_pt,
+         jun_2016_non_cin_pt=non_cin_pt,
+         jun_2016_non_cin_amt=cin_amt,
+         jun_2016_non_non_cin_amt=non_cin_amt,
+         jun_2016_non_promo_bonus_pt=promo_bonus_pt,
+         jun_2016_non_enroll_bonus_pt=enroll_bonus_pt,
+         jun_2016_non_regular_pt=regular_pt
+         )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "May")%>%
-  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
+         reversal_pt,redeem_amt,redeem_pt,cin_pt,non_cin_pt,cin_amt,non_cin_amt,
+         promo_bonus_pt,enroll_bonus_pt,regular_pt)%>%
   rename(may_2016=txn_amt,
          may_2016_cin=cin_pt_n,
-         n_may_2016=n_pt)%>%
+         n_may_2016=n_pt,
+         may_2016_issuance_amt=issuance_amt,
+         may_2016_reversal_amt=reversal_amt,
+         may_2016_issuance_pt=issuance_pt,
+         may_2016_reversal_pt=reversal_pt,
+         may_2016_redeem_amt=redeem_amt,
+         may_2016_redeem_pt=redeem_pt,
+         may_2016_cin_pt=cin_pt,
+         may_2016_non_cin_pt=non_cin_pt,
+         may_2016_non_cin_amt=cin_amt,
+         may_2016_non_non_cin_amt=non_cin_amt,
+         may_2016_non_promo_bonus_pt=promo_bonus_pt,
+         may_2016_non_enroll_bonus_pt=enroll_bonus_pt,
+         may_2016_non_regular_pt=regular_pt
+         )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "April")%>%
-  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
+         reversal_pt,redeem_amt,redeem_pt,cin_pt,non_cin_pt,cin_amt,non_cin_amt,
+         promo_bonus_pt,enroll_bonus_pt,regular_pt)%>%
   rename(apr_2016=txn_amt,
          apr_2016_cin=cin_pt_n,
-         n_apr_2016=n_pt)%>%
+         n_apr_2016=n_pt,
+         apr_2016_issuance_amt=issuance_amt,
+         apr_2016_reversal_amt=reversal_amt,
+         apr_2016_issuance_pt=issuance_pt,
+         apr_2016_reversal_pt=reversal_pt,
+         apr_2016_redeem_amt=redeem_amt,
+         apr_2016_redeem_pt=redeem_pt,
+         apr_2016_cin_pt=cin_pt,
+         apr_2016_non_cin_pt=non_cin_pt,
+         apr_2016_non_cin_amt=cin_amt,
+         apr_2016_non_non_cin_amt=non_cin_amt,
+         apr_2016_non_promo_bonus_pt=promo_bonus_pt,
+         apr_2016_non_enroll_bonus_pt=enroll_bonus_pt,
+         apr_2016_non_regular_pt=regular_pt
+         )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "March")%>%
-  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
+         reversal_pt,redeem_amt,redeem_pt,cin_pt,non_cin_pt,cin_amt,non_cin_amt,
+         promo_bonus_pt,enroll_bonus_pt,regular_pt)%>%
   rename(mar_2016=txn_amt,
          mar_2016_cin=cin_pt_n,
-         n_mar_2016=n_pt)%>%
+         n_mar_2016=n_pt,
+         mar_2016_issuance_amt=issuance_amt,
+         mar_2016_reversal_amt=reversal_amt,
+         mar_2016_issuance_pt=issuance_pt,
+         mar_2016_reversal_pt=reversal_pt,
+         mar_2016_redeem_amt=redeem_amt,
+         mar_2016_redeem_pt=redeem_pt,
+         mar_2016_cin_pt=cin_pt,
+         mar_2016_non_cin_pt=non_cin_pt,
+         mar_2016_non_cin_amt=cin_amt,
+         mar_2016_non_non_cin_amt=non_cin_amt,
+         mar_2016_non_promo_bonus_pt=promo_bonus_pt,
+         mar_2016_non_enroll_bonus_pt=enroll_bonus_pt,
+         mar_2016_non_regular_pt=regular_pt
+         )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "February")%>%
-  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt)%>%
+  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
+         reversal_pt,redeem_amt,redeem_pt,cin_pt,non_cin_pt,cin_amt,non_cin_amt,
+         promo_bonus_pt,enroll_bonus_pt,regular_pt)%>%
   rename(feb_2016=txn_amt,
          feb_2016_cin=cin_pt_n,
-         n_feb_2016=n_pt)%>%
+         n_feb_2016=n_pt,
+         feb_2016_issuance_amt=issuance_amt,
+         feb_2016_reversal_amt=reversal_amt,
+         feb_2016_issuance_pt=issuance_pt,
+         feb_2016_reversal_pt=reversal_pt,
+         feb_2016_redeem_amt=redeem_amt,
+         feb_2016_redeem_pt=redeem_pt,
+         feb_2016_cin_pt=cin_pt,
+         feb_2016_non_cin_pt=non_cin_pt,
+         feb_2016_non_cin_amt=cin_amt,
+         feb_2016_non_non_cin_amt=non_cin_amt,
+         feb_2016_non_promo_bonus_pt=promo_bonus_pt,
+         feb_2016_non_enroll_bonus_pt=enroll_bonus_pt,
+         feb_2016_non_regular_pt=regular_pt
+         )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 # Logic for OUR DEFINITION OF LOYAL CUSTOMER 
 # Customers who have spend in every last 6 months
-scene_joined<-scene_loyalty_pt %>%
+scene_joined <- scene_loyalty_pt %>%
   right_join(y=scene_joined, by="scene_mbr_key") %>%
-  filter(feb_2016 > 0 & mar_2016 > 0 & apr_2016 > 0 
-         & may_2016 > 0 & jun_2016 > 0 & jul_2016 > 0 )%>%
+  filter( (feb_2016 > 0 & mar_2016 > 0 & apr_2016 > 0 
+           & may_2016 > 0 & jun_2016 > 0 & jul_2016 > 0 )
+         # ( feb_2016_redeem_pt > 0 | mar_2016_redeem_pt > 0 | apr_2016_redeem_pt > 0 
+         #   | may_2016_redeem_pt > 0 | jun_2016_redeem_pt > 0 | jul_2016_redeem_pt > 0
+         #   | aug_2016_redeem_pt > 0 )
+         ) %>%
   select(everything())
 
 head(scene_joined)
