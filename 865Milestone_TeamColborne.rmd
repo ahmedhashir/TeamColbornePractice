@@ -36,15 +36,15 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 ```{r, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 
 # Spark script
- # config <- spark_config() 
- # config$'sparklyr.shell.executor-memory' <- "30g" 
- # config$'sparklyr.shell.driver-memory' <- "10g" 
+ config <- spark_config()
+ config$'sparklyr.shell.executor-memory' <- "30g"
+ config$'sparklyr.shell.driver-memory' <- "10g"
  # config$spark.yarn.am.memory <- "15g"
 
 # Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
 # 
 start<-Sys.time()
-# sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
 # 
 # in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample0003/clean/'
 # 
@@ -313,8 +313,7 @@ scene_joined<-scene_loyalty_pt%>%
 
 # Logic for OUR DEFINITION OF LOYAL CUSTOMER 
 # Customers who have spend in every last 6 months
-scene_joined <- scene_loyalty_pt %>%
-  right_join(y=scene_joined, by="scene_mbr_key") %>%
+scene_joined <- scene_joined %>%
   filter( (feb_2016 > 0 & mar_2016 > 0 & apr_2016 > 0 
            & may_2016 > 0 & jun_2016 > 0 & jul_2016 > 0 )
          # ( feb_2016_redeem_pt > 0 | mar_2016_redeem_pt > 0 | apr_2016_redeem_pt > 0 
@@ -324,7 +323,6 @@ scene_joined <- scene_loyalty_pt %>%
   select(everything())
 
 head(scene_joined)
-
 
 ```
 
@@ -576,7 +574,7 @@ The following code chunk presents the skeleton for the H2O models.
 
 ######## Following Skeleton Code may not completely run as of now #######
 
-h2o.init(nthreads = -1)
+h2o.init(ip = "192.168.30.21", port = 56526)
 
 scene_data <- as.h2o(scene_data)
 
