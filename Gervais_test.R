@@ -4,6 +4,9 @@ library(data.table)
 library(sparklyr)
 library(rsparkling)
 library(h2o)
+library(lubridate)
+library(zoo)
+library(caret)
 
 # #Spark script
 # config <- spark_config()
@@ -27,7 +30,7 @@ library(h2o)
 
 
 #R script
-in_path_r = '/global/project/queens-mma/scene-csv/sample03/clean/'
+in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
 
 #Read the regular R files for now
 scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
@@ -42,6 +45,12 @@ most_recent_month <- scene_pt_fact_filter %>%
   mutate(yr_month = as.Date(time_lvl_st_dt)) %>%
   group_by(scene_mbr_key) %>%
   summarise(most_recent_month = max(yr_month))
+
+check <- most_recent_month %>%
+  group_by(most_recent_month) %>%
+  dplyr::summarise(n = n()) %>%
+  dplyr::arrange(desc(n))
+
 
 # This table has the monthly spending by customer
 monthly_spend_by_mbr <- scene_pt_fact_filter %>%
@@ -263,3 +272,77 @@ most_recent_spend_minus_12 <- left_join(monthly_spend_by_mbr,
 master_table <- left_join(master_table, 
                           most_recent_spend_minus_12,
                           by = "scene_mbr_key")
+
+na_filter <- is.na(master_table)
+master_table[na_filter] <- 0
+
+master_table_final <- master_table %>%
+  ungroup()%>%
+  select(-scene_mbr_key)%>%
+  filter(yr_month =="2016-09-01")
+
+scene_dim1 <- scene_mbr_dim %>% 
+  dplyr::group_by(scene_mbr_key,scene_mbr_seq_num) %>%
+  dplyr::arrange(desc(scene_mbr_seq_num))%>%
+  dplyr::ungroup() 
+scene_dim2 <- scene_mbr_dim %>% 
+  dplyr::group_by(scene_mbr_key) %>%
+  dplyr::arrange(desc(scene_mbr_seq_num)) %>%
+  dplyr::summarise(scene_mbr_seq_num = max(scene_mbr_seq_num))
+#an alternative to distinct function to delete duplicate entries  
+scene_mbr_dim <- dplyr::inner_join(scene_dim2,scene_dim1)
+
+
+
+fitControl <- trainControl(## 10-fold CV
+  method = "repeatedcv",
+  number = 10)
+
+n = nrow(master_table_final)
+trainIndex = sample(1:n, size = round(0.7*n), replace=FALSE)
+train = master_table_final[trainIndex ,]
+test = master_table_final[-trainIndex ,]
+
+
+
+gbmFit1 <- train(most_recent_spending ~ ., data = train, 
+                 method = "gbm", 
+                 trControl = fitControl,
+                 ## This last option is actually one
+                 ## for gbm() that passes through
+                 verbose = TRUE)
+
+pred <- predict(gbmFit1, test)
+
+postResample(pred = pred, obs = test$most_recent_spending)
+
+pe <- abs(test$most_recent_spending-pred)/test$most_recent_spending
+
+pe <- pe[!is.infinite(pe)]
+mean(pe)
+
+h2o.init()
+master_table_h2o <- as.h2o(master_table_final)
+
+splits <- h2o.splitFrame(master_table_h2o, 0.8)
+train <- splits[[1]]
+test <- splits[[2]]
+
+# Tell h2o which are response variables and which are features
+y <- "most_recent_spending"  
+x <- names[names(scene_data)!=y]
+
+m_rf_default <- h2o.randomForest(x, y, train, nfolds = 3, model_id = "RF_defaults")
+
+# Show the performance on the test set
+h2o.performance(m_rf_default, test)
+
+m_gbm_default <- h2o.gbm(x, y, train, nfolds = 3, model_id = "GBM_defaults")
+
+h2o.performance(m_gbm_default, test)
+
+m_dl_default <- h2o.deeplearning(x, y, train, nfolds = 3, model_id = "GBM_defaults")
+
+h2o.performance(m_dl_default, test)
+
+
