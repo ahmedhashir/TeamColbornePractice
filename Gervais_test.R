@@ -345,16 +345,3 @@ m_dl_default <- h2o.deeplearning(x, y, train, nfolds = 3, model_id = "GBM_defaul
 
 h2o.performance(m_dl_default, test)
 
-
-#-------------------------------Now it's David's stuff
-
-library(dplyr)
-preds <-  data %>%    
-  group_by(scene_mbr_key) %>%   
-  do( {
-    xt <- ts( .[,3], frequency=12)
-    fit <-     auto.arima(xt)
-    pred <- forecast(fit, h=1)
-    data.frame(.,pred)
-  }) 
-
