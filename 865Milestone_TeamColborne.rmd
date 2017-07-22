@@ -46,13 +46,13 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 start<-Sys.time()
 sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
 # 
-# in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample0003/clean/'
+ in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
 # 
-# scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+ scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
 # 
-# scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
+ scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
 # 
-# scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+ scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
 finish<-Sys.time()
 
 print(finish-start)
@@ -103,7 +103,7 @@ scene_dim1 <- scene_mbr_dim %>%
   summarise(scene_mbr_seq_num = max(scene_mbr_seq_num))
 #an alternative to distinct function to delete duplicate entries  
 scene_mbr_dim <- inner_join(scene_dim2,scene_dim1)
-
+dim(scene_mbr_dim)
 # Aggregating transaction amount by the month, year and trans type
 
 #Initialize the dataframe that we'll use to create the lagged variables
@@ -158,11 +158,11 @@ scene_joined<-scene_loyalty_pt%>%
          aug_2016_redeem_pt=redeem_pt,
          aug_2016_cin_pt=cin_pt,
          aug_2016_non_cin_pt=non_cin_pt,
-         aug_2016_non_cin_amt=cin_amt,
-         aug_2016_non_non_cin_amt=non_cin_amt,
-         aug_2016_non_promo_bonus_pt=promo_bonus_pt,
-         aug_2016_non_enroll_bonus_pt=enroll_bonus_pt,
-         aug_2016_non_regular_pt=regular_pt
+         aug_2016_cin_amt=cin_amt,
+         aug_2016_non_cin_amt=non_cin_amt,
+         aug_2016_promo_bonus_pt=promo_bonus_pt,
+         aug_2016_enroll_bonus_pt=enroll_bonus_pt,
+         aug_2016_regular_pt=regular_pt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -182,14 +182,14 @@ scene_joined<-scene_loyalty_pt%>%
          jul_2016_redeem_pt=redeem_pt,
          jul_2016_cin_pt=cin_pt,
          jul_2016_non_cin_pt=non_cin_pt,
-         jul_2016_non_cin_amt=cin_amt,
-         jul_2016_non_non_cin_amt=non_cin_amt,
-         jul_2016_non_promo_bonus_pt=promo_bonus_pt,
-         jul_2016_non_enroll_bonus_pt=enroll_bonus_pt,
-         jul_2016_non_regular_pt=regular_pt
+         jul_2016_cin_amt=cin_amt,
+         jul_2016_non_cin_amt=non_cin_amt,
+         jul_2016_promo_bonus_pt=promo_bonus_pt,
+         jul_2016_enroll_bonus_pt=enroll_bonus_pt,
+         jul_2016_regular_pt=regular_pt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
-
+dim(scene_joined)
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "June")%>%
   select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
@@ -206,11 +206,11 @@ scene_joined<-scene_loyalty_pt%>%
          jun_2016_redeem_pt=redeem_pt,
          jun_2016_cin_pt=cin_pt,
          jun_2016_non_cin_pt=non_cin_pt,
-         jun_2016_non_cin_amt=cin_amt,
-         jun_2016_non_non_cin_amt=non_cin_amt,
-         jun_2016_non_promo_bonus_pt=promo_bonus_pt,
-         jun_2016_non_enroll_bonus_pt=enroll_bonus_pt,
-         jun_2016_non_regular_pt=regular_pt
+         jun_2016_cin_amt=cin_amt,
+         jun_2016_non_cin_amt=non_cin_amt,
+         jun_2016_promo_bonus_pt=promo_bonus_pt,
+         jun_2016_enroll_bonus_pt=enroll_bonus_pt,
+         jun_2016_regular_pt=regular_pt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -230,11 +230,11 @@ scene_joined<-scene_loyalty_pt%>%
          may_2016_redeem_pt=redeem_pt,
          may_2016_cin_pt=cin_pt,
          may_2016_non_cin_pt=non_cin_pt,
-         may_2016_non_cin_amt=cin_amt,
-         may_2016_non_non_cin_amt=non_cin_amt,
-         may_2016_non_promo_bonus_pt=promo_bonus_pt,
-         may_2016_non_enroll_bonus_pt=enroll_bonus_pt,
-         may_2016_non_regular_pt=regular_pt
+         may_2016_cin_amt=cin_amt,
+         may_2016_non_cin_amt=non_cin_amt,
+         may_2016_promo_bonus_pt=promo_bonus_pt,
+         may_2016_enroll_bonus_pt=enroll_bonus_pt,
+         may_2016_regular_pt=regular_pt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -254,11 +254,11 @@ scene_joined<-scene_loyalty_pt%>%
          apr_2016_redeem_pt=redeem_pt,
          apr_2016_cin_pt=cin_pt,
          apr_2016_non_cin_pt=non_cin_pt,
-         apr_2016_non_cin_amt=cin_amt,
-         apr_2016_non_non_cin_amt=non_cin_amt,
-         apr_2016_non_promo_bonus_pt=promo_bonus_pt,
-         apr_2016_non_enroll_bonus_pt=enroll_bonus_pt,
-         apr_2016_non_regular_pt=regular_pt
+         apr_2016_cin_amt=cin_amt,
+         apr_2016_non_cin_amt=non_cin_amt,
+         apr_2016_promo_bonus_pt=promo_bonus_pt,
+         apr_2016_enroll_bonus_pt=enroll_bonus_pt,
+         apr_2016_regular_pt=regular_pt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -279,11 +279,11 @@ scene_joined<-scene_loyalty_pt%>%
          mar_2016_redeem_pt=redeem_pt,
          mar_2016_cin_pt=cin_pt,
          mar_2016_non_cin_pt=non_cin_pt,
-         mar_2016_non_cin_amt=cin_amt,
-         mar_2016_non_non_cin_amt=non_cin_amt,
-         mar_2016_non_promo_bonus_pt=promo_bonus_pt,
-         mar_2016_non_enroll_bonus_pt=enroll_bonus_pt,
-         mar_2016_non_regular_pt=regular_pt
+         mar_2016_cin_amt=cin_amt,
+         mar_2016_non_cin_amt=non_cin_amt,
+         mar_2016_promo_bonus_pt=promo_bonus_pt,
+         mar_2016_enroll_bonus_pt=enroll_bonus_pt,
+         mar_2016_regular_pt=regular_pt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -303,11 +303,11 @@ scene_joined<-scene_loyalty_pt%>%
          feb_2016_redeem_pt=redeem_pt,
          feb_2016_cin_pt=cin_pt,
          feb_2016_non_cin_pt=non_cin_pt,
-         feb_2016_non_cin_amt=cin_amt,
-         feb_2016_non_non_cin_amt=non_cin_amt,
-         feb_2016_non_promo_bonus_pt=promo_bonus_pt,
-         feb_2016_non_enroll_bonus_pt=enroll_bonus_pt,
-         feb_2016_non_regular_pt=regular_pt
+         feb_2016_cin_amt=cin_amt,
+         feb_2016_non_cin_amt=non_cin_amt,
+         feb_2016_promo_bonus_pt=promo_bonus_pt,
+         feb_2016_enroll_bonus_pt=enroll_bonus_pt,
+         feb_2016_regular_pt=regular_pt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -323,6 +323,7 @@ scene_joined <- scene_joined %>%
   select(everything())
 
 head(scene_joined)
+colnames(scene_joined)
 
 ```
 
@@ -332,133 +333,133 @@ head(scene_joined)
 
 ```{r Joins, echo=TRUE}
 
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2016 & mo_clndr_code == "January")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(jan_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-#Now let's do it for 2015 variables
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "December")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(dec_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "November")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(nov_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "October")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(oct_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "September")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(sep_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "August")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(aug_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "July")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(jul_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "June")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(jun_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "May")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(may_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "April")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(apr_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "March")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(mar_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "February")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(feb_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code == "January")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(jan_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2014 & mo_clndr_code == "December")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(dec_2014=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2014 & mo_clndr_code == "November")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(nov_2014=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2014 & mo_clndr_code == "October")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(oct_2014=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2014 & mo_clndr_code == "September")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(sep_2014=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-#Now let's look at the number of transactions in 6-month blocks and join it onto scene_joined
-
-#Filter for the past 6 months spend and aggregate it into one variable
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2016 & mo_clndr_code %in% c("August", "July", "June", "May", "April", "March"))%>%
-  group_by(scene_mbr_key)%>%
-  summarise("num_cin_6"=sum(cin_pt_n))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-##Filter for months t-12 to t-7 and aggregate it into one variable
-# | is the logical equivalent of "or"
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code ==2016 & mo_clndr_code %in% c("February", "January") | anul_clndr_code == 2015 & mo_clndr_code %in% c("December", "November", "October", "September"))%>%
-  group_by(scene_mbr_key)%>%
-  summarise("num_cin_12"=sum(cin_pt_n))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-##Filter for months t-18 to t-13 and aggregate it into one variable
-scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2015 & mo_clndr_code %in% c("August", "July", "June", "May", "April", "March"))%>%
-  group_by(scene_mbr_key)%>%
-  summarise("num_cin_18"=sum(cin_pt_n))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2016 & mo_clndr_code == "January")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(jan_2016=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# #Now let's do it for 2015 variables
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "December")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(dec_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "November")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(nov_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "October")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(oct_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "September")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(sep_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "August")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(aug_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "July")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(jul_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "June")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(jun_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "May")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(may_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "April")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(apr_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "March")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(mar_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "February")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(feb_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code == "January")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(jan_2015=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2014 & mo_clndr_code == "December")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(dec_2014=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2014 & mo_clndr_code == "November")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(nov_2014=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2014 & mo_clndr_code == "October")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(oct_2014=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2014 & mo_clndr_code == "September")%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise(sep_2014=sum(txn_amt))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# #Now let's look at the number of transactions in 6-month blocks and join it onto scene_joined
+# 
+# #Filter for the past 6 months spend and aggregate it into one variable
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2016 & mo_clndr_code %in% c("August", "July", "June", "May", "April", "March"))%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise("num_cin_6"=sum(cin_pt_n))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# ##Filter for months t-12 to t-7 and aggregate it into one variable
+# # | is the logical equivalent of "or"
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code ==2016 & mo_clndr_code %in% c("February", "January") | anul_clndr_code == 2015 & mo_clndr_code %in% c("December", "November", "October", "September"))%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise("num_cin_12"=sum(cin_pt_n))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
+# 
+# ##Filter for months t-18 to t-13 and aggregate it into one variable
+# scene_joined<-scene_loyalty_pt%>%
+#   filter(anul_clndr_code == 2015 & mo_clndr_code %in% c("August", "July", "June", "May", "April", "March"))%>%
+#   group_by(scene_mbr_key)%>%
+#   summarise("num_cin_18"=sum(cin_pt_n))%>%
+#   right_join(y=scene_joined, by="scene_mbr_key")
 
 #okay now lets join it onto the demo data.
 
@@ -517,7 +518,8 @@ scene_data <- scene_data %>%
      -scene_mbr_key,
     -scene_mbr_seq_num,
     -eff_from_tmstamp,
-    -eff_to_tmstamp
+    -eff_to_tmstamp,
+    -aug_2016.x
         )
 
 
@@ -601,8 +603,8 @@ test <- splits[[2]]
 
 
 # Tell h2o which are response variables and which are features
-y <- "aug_2016"  
-x <- names[names(scene_data)!=y]
+y <- "aug_2016.y"  
+x <- names[names(scene_data)!=y & names(scene_data)!="aug_2016.x"] 
 
 
 ```
@@ -619,7 +621,7 @@ m_rf_default <- h2o.randomForest(x, y, train, nfolds = 2, model_id = "RF_default
 
 # Show the performance on the test set
 h2o.performance(m_rf_default, test)
-
+summary(m_rf_default)
 
 # Here's how we plan to do parameter tuning!
 g_rf <- h2o.grid("randomForest",
