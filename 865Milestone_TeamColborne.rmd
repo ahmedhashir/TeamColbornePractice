@@ -27,35 +27,29 @@ library(data.table)
 library(sparklyr)
 library(rsparkling)
 library(h2o)
-```
 
-#Loading the data
 
-The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_acct_dim* and *scene_pt_fact*
-
-```{r, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
-
-# Spark script
- config <- spark_config()
- config$'sparklyr.shell.executor-memory' <- "30g"
- config$'sparklyr.shell.driver-memory' <- "10g"
- # config$spark.yarn.am.memory <- "15g"
-
-# Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
+# # Spark script
+#  config <- spark_config()
+#  config$'sparklyr.shell.executor-memory' <- "30g"
+#  config$'sparklyr.shell.driver-memory' <- "10g"
+#  # config$spark.yarn.am.memory <- "15g"
 # 
-start<-Sys.time()
-sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+# # Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
+# # 
+# start<-Sys.time()
+# sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+# # 
+#  in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
+# # 
+#  scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+# # 
+#  scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
+# # 
+#  scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+# finish<-Sys.time()
 # 
- in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
-# 
- scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
-# 
- scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
-# 
- scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
-finish<-Sys.time()
-
-print(finish-start)
+# print(finish-start)
 
 #R script
 in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
@@ -65,13 +59,10 @@ scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
 scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
 
-```
 
-# Selection of Variables and Joining the Tables
 
-We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below are the box plots to indicate the outliers, this was used as substantiation to remove high rollers. The points highlighted in red in the box plots are the outliers, only the transaction amounts between $0 and $10000 are considered, elimating the other outliers.
 
-```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+
 #First let's filter for transactions that are between 0 and 10k
 scene_pt_fact_filter <- scene_pt_fact %>%
   filter(txn_amt <= 10000)
@@ -82,6 +73,9 @@ first_purchase <- scene_pt_fact_filter %>%
   summarise(first_transaction = min(yr_month))
   
 ```
+# Selection of Variables and Joining the Tables
+
+We have filtered for transactions that are between $0 and $10,000 to eliminate high-rollers and for transactions that were returned. Below are the box plots to indicate the outliers, this was used as substantiation to remove high rollers. The points highlighted in red in the box plots are the outliers, only the transaction amounts between $0 and $10000 are considered, elimating the other outliers.
 
 
 We are aware that our model loses some reliability given these filters. In future iterations, our model will reflect that some transactions that are greater than $0 were later reversed and will be omitted from the model.
@@ -143,30 +137,6 @@ scene_loyalty_pt <- scene_loyalty_pt %>%
 #Now copy and paste the slightly altered code for each month and join it onto the original dataframe
 
 scene_joined<-scene_loyalty_pt%>%
-  filter(anul_clndr_code == 2016 & mo_clndr_code == "August")%>%
-  select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
-         reversal_pt,redeem_amt,redeem_pt,cin_pt,non_cin_pt,cin_amt,non_cin_amt,
-         promo_bonus_pt,enroll_bonus_pt,regular_pt)%>%
-  rename(aug_2016=txn_amt,
-         aug_2016_cin=cin_pt_n,
-         n_aug_2016=n_pt,
-         aug_2016_issuance_amt=issuance_amt,
-         aug_2016_reversal_amt=reversal_amt,
-         aug_2016_issuance_pt=issuance_pt,
-         aug_2016_reversal_pt=reversal_pt,
-         aug_2016_redeem_amt=redeem_amt,
-         aug_2016_redeem_pt=redeem_pt,
-         aug_2016_cin_pt=cin_pt,
-         aug_2016_non_cin_pt=non_cin_pt,
-         aug_2016_cin_amt=cin_amt,
-         aug_2016_non_cin_amt=non_cin_amt,
-         aug_2016_promo_bonus_pt=promo_bonus_pt,
-         aug_2016_enroll_bonus_pt=enroll_bonus_pt,
-         aug_2016_regular_pt=regular_pt
-         )%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
-
-scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "July")%>%
   select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
          reversal_pt,redeem_amt,redeem_pt,cin_pt,non_cin_pt,cin_amt,non_cin_amt,
@@ -181,15 +151,13 @@ scene_joined<-scene_loyalty_pt%>%
          jul_2016_redeem_amt=redeem_amt,
          jul_2016_redeem_pt=redeem_pt,
          jul_2016_cin_pt=cin_pt,
-         jul_2016_non_cin_pt=non_cin_pt,
          jul_2016_cin_amt=cin_amt,
-         jul_2016_non_cin_amt=non_cin_amt,
          jul_2016_promo_bonus_pt=promo_bonus_pt,
          jul_2016_enroll_bonus_pt=enroll_bonus_pt,
          jul_2016_regular_pt=regular_pt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
-dim(scene_joined)
+
 scene_joined<-scene_loyalty_pt%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "June")%>%
   select(scene_mbr_key, txn_amt, cin_pt_n, n_pt,issuance_amt,reversal_amt,issuance_pt,
@@ -205,9 +173,7 @@ scene_joined<-scene_loyalty_pt%>%
          jun_2016_redeem_amt=redeem_amt,
          jun_2016_redeem_pt=redeem_pt,
          jun_2016_cin_pt=cin_pt,
-         jun_2016_non_cin_pt=non_cin_pt,
          jun_2016_cin_amt=cin_amt,
-         jun_2016_non_cin_amt=non_cin_amt,
          jun_2016_promo_bonus_pt=promo_bonus_pt,
          jun_2016_enroll_bonus_pt=enroll_bonus_pt,
          jun_2016_regular_pt=regular_pt
@@ -229,9 +195,7 @@ scene_joined<-scene_loyalty_pt%>%
          may_2016_redeem_amt=redeem_amt,
          may_2016_redeem_pt=redeem_pt,
          may_2016_cin_pt=cin_pt,
-         may_2016_non_cin_pt=non_cin_pt,
          may_2016_cin_amt=cin_amt,
-         may_2016_non_cin_amt=non_cin_amt,
          may_2016_promo_bonus_pt=promo_bonus_pt,
          may_2016_enroll_bonus_pt=enroll_bonus_pt,
          may_2016_regular_pt=regular_pt
@@ -253,9 +217,7 @@ scene_joined<-scene_loyalty_pt%>%
          apr_2016_redeem_amt=redeem_amt,
          apr_2016_redeem_pt=redeem_pt,
          apr_2016_cin_pt=cin_pt,
-         apr_2016_non_cin_pt=non_cin_pt,
          apr_2016_cin_amt=cin_amt,
-         apr_2016_non_cin_amt=non_cin_amt,
          apr_2016_promo_bonus_pt=promo_bonus_pt,
          apr_2016_enroll_bonus_pt=enroll_bonus_pt,
          apr_2016_regular_pt=regular_pt
@@ -278,9 +240,7 @@ scene_joined<-scene_loyalty_pt%>%
          mar_2016_redeem_amt=redeem_amt,
          mar_2016_redeem_pt=redeem_pt,
          mar_2016_cin_pt=cin_pt,
-         mar_2016_non_cin_pt=non_cin_pt,
          mar_2016_cin_amt=cin_amt,
-         mar_2016_non_cin_amt=non_cin_amt,
          mar_2016_promo_bonus_pt=promo_bonus_pt,
          mar_2016_enroll_bonus_pt=enroll_bonus_pt,
          mar_2016_regular_pt=regular_pt
@@ -302,9 +262,7 @@ scene_joined<-scene_loyalty_pt%>%
          feb_2016_redeem_amt=redeem_amt,
          feb_2016_redeem_pt=redeem_pt,
          feb_2016_cin_pt=cin_pt,
-         feb_2016_non_cin_pt=non_cin_pt,
          feb_2016_cin_amt=cin_amt,
-         feb_2016_non_cin_amt=non_cin_amt,
          feb_2016_promo_bonus_pt=promo_bonus_pt,
          feb_2016_enroll_bonus_pt=enroll_bonus_pt,
          feb_2016_regular_pt=regular_pt
@@ -314,154 +272,16 @@ scene_joined<-scene_loyalty_pt%>%
 # Logic for OUR DEFINITION OF LOYAL CUSTOMER 
 # Customers who have spend in every last 6 months
 scene_joined <- scene_joined %>%
-  filter( (feb_2016 > 0 & mar_2016 > 0 & apr_2016 > 0 
+  filter(feb_2016 > 0 & mar_2016 > 0 & apr_2016 > 0 
            & may_2016 > 0 & jun_2016 > 0 & jul_2016 > 0 )
-         # ( feb_2016_redeem_pt > 0 | mar_2016_redeem_pt > 0 | apr_2016_redeem_pt > 0 
-         #   | may_2016_redeem_pt > 0 | jun_2016_redeem_pt > 0 | jul_2016_redeem_pt > 0
-         #   | aug_2016_redeem_pt > 0 )
-         ) %>%
-  select(everything())
-
-head(scene_joined)
+        
 colnames(scene_joined)
 
 ```
 
 
-
-
-
 ```{r Joins, echo=TRUE}
 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2016 & mo_clndr_code == "January")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(jan_2016=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# #Now let's do it for 2015 variables
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "December")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(dec_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "November")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(nov_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "October")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(oct_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "September")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(sep_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "August")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(aug_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "July")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(jul_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "June")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(jun_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "May")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(may_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "April")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(apr_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "March")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(mar_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "February")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(feb_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code == "January")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(jan_2015=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2014 & mo_clndr_code == "December")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(dec_2014=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2014 & mo_clndr_code == "November")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(nov_2014=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2014 & mo_clndr_code == "October")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(oct_2014=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2014 & mo_clndr_code == "September")%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise(sep_2014=sum(txn_amt))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# #Now let's look at the number of transactions in 6-month blocks and join it onto scene_joined
-# 
-# #Filter for the past 6 months spend and aggregate it into one variable
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2016 & mo_clndr_code %in% c("August", "July", "June", "May", "April", "March"))%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise("num_cin_6"=sum(cin_pt_n))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# ##Filter for months t-12 to t-7 and aggregate it into one variable
-# # | is the logical equivalent of "or"
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code ==2016 & mo_clndr_code %in% c("February", "January") | anul_clndr_code == 2015 & mo_clndr_code %in% c("December", "November", "October", "September"))%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise("num_cin_12"=sum(cin_pt_n))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-# 
-# ##Filter for months t-18 to t-13 and aggregate it into one variable
-# scene_joined<-scene_loyalty_pt%>%
-#   filter(anul_clndr_code == 2015 & mo_clndr_code %in% c("August", "July", "June", "May", "April", "March"))%>%
-#   group_by(scene_mbr_key)%>%
-#   summarise("num_cin_18"=sum(cin_pt_n))%>%
-#   right_join(y=scene_joined, by="scene_mbr_key")
-
-#okay now lets join it onto the demo data.
 
 scene_columns <- c("scene_mbr_key",
                    "scene_mbr_seq_num",
@@ -482,13 +302,7 @@ scene_columns <- c("scene_mbr_key",
 
 
 #Join Customer Dimension Data with scene_data
-# Excluding reference key columns from joined data
-# scene_data<- inner_join(x = scene_mbr_dim, 
-#                     y = scene_joined, 
-#                     by = "scene_mbr_key")%>%
-#               select(one_of(scene_columns))
 
-# Joining scene_data with account data
 scene_data <- scene_mbr_dim%>%
                   select(one_of(scene_columns))%>%
               inner_join(y=scene_joined, by = "scene_mbr_key")
@@ -510,18 +324,15 @@ scene_data<- scene_data %>%
 #Joining the final table with the first purchase date info
 scene_data <- scene_data %>% 
               left_join(y=first_purchase, by ="scene_mbr_key")  
-```
 
-```{r}
+#Now eliminate variables we no longer need
 scene_data <- scene_data %>%
   select(
      -scene_mbr_key,
     -scene_mbr_seq_num,
     -eff_from_tmstamp,
     -eff_to_tmstamp,
-    -aug_2016.x
         )
-
 
 
 
@@ -529,28 +340,6 @@ scene_data <- scene_data %>%
 
 
 #Use of h2o because some other feature engineering can't be done in Spark
-
-```{r,echo = FALSE, message = FALSE, warning = FALSE}
-
-###Below is the code for creating monthly variables for spend by each customer. This code will not work in sparklyr or on an h2o class data.table so we need to figure out a new way to integrate time series effects
-
-# scene_data_lag<-scene_data%>%
-#   unite("MoYear", mo_clndr_code, anul_clndr_code, sep="")
-# scene_data_lag<-spread(scene_data_lag, MoYear, txn_amt, fill= 0)
-
-
-
-#Now we'll try it on an h2o data table
-
-# scene_long<-scene_data%>%
-#   select(one_of(c("scene_mbr_key", "anul_clndr_code", "txn_amt")))
-
-# scene_long<-as.h2o(scene_long)
-# 
-# h2o.pivot(x= scene_long, index= "scene_mbr_key", column = "anul_clndr_code", value= "txn_amt")
-
-
-```
 
 
 #Models
