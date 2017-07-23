@@ -275,7 +275,6 @@ scene_joined <- scene_joined %>%
   filter(feb_2016 > 0 & mar_2016 > 0 & apr_2016 > 0 
            & may_2016 > 0 & jun_2016 > 0 & jul_2016 > 0 )
         
-colnames(scene_joined)
 
 ```
 
@@ -307,9 +306,6 @@ scene_data <- scene_mbr_dim%>%
                   select(one_of(scene_columns))%>%
               inner_join(y=scene_joined, by = "scene_mbr_key")
 
-
-finish<-Sys.time()
-print(finish-start)
   
 ```
 
