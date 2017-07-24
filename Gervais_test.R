@@ -568,4 +568,3 @@ m_dl_default <- h2o.deeplearning(x, y, train, nfolds = 3, model_id = "GBM_defaul
 
 h2o.performance(m_dl_default, test)
 
-
