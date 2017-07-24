@@ -8,25 +8,28 @@ library(lubridate)
 library(zoo)
 library(caret)
 
-# #Spark script
-# config <- spark_config()
-# config$'sparklyr.shell.executor-memory' <- "30g"
-# config$'sparklyr.shell.driver-memory' <- "10g"
-# # config$spark.yarn.am.memory <- "15g"
+
+
+
+#Spark script
+config <- spark_config()
+config$'sparklyr.shell.executor-memory' <- "30g"
+config$'sparklyr.shell.driver-memory' <- "10g"
+# config$spark.yarn.am.memory <- "15g"
 # 
 # # Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
 # # 
 # start<-Sys.time()
 # 
-# sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
 # 
-# in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample0003/clean/'
+in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
 # 
-# scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
 # 
-# scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
-# 
-# scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
+
+scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
 
 
 #R script
@@ -37,8 +40,193 @@ scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
 scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
 
+# Get rid of high rollers right off the bat
+#NOTE CHANGE THIS TO BE BASED ON STANDARD DEVIATION
 scene_pt_fact_filter <- scene_pt_fact %>%
   filter(txn_amt <= 10000)
+
+#Change dates
+scene_pt_fact_filter$time_lvl_st_dt <- as.Date(scene_pt_fact_filter$time_lvl_st_dt)
+scene_pt_fact_filter$mo_clndr_code <- as.factor(scene_pt_fact_filter$mo_clndr_code)
+
+#Crate a df for data exploration
+plot_data <- scene_pt_fact_filter %>% 
+  filter(anul_fncl_code>=2013 & time_lvl_st_dt != "2016-09-01") %>% 
+  group_by(time_lvl_st_dt) %>% 
+  summarise(total = sum(txn_amt), 
+            mean = mean(txn_amt), 
+            n = n()) %>% 
+  mutate(month = as.factor(format(time_lvl_st_dt, "%m")), 
+         year = as.factor(format(time_lvl_st_dt, "%Y")))
+
+ggplot(plot_data, aes(x = time_lvl_st_dt, y = total))+
+  geom_point()+
+  geom_line()+
+  labs(x = "Date",
+       y = "Total Monthly Spend ($)",
+       subtitle = "Total monthly spending has consistently been on the rise since 2013; Substantial seasonality present")
+
+ggplot(plot_data, aes(x = time_lvl_st_dt, y = mean))+
+  geom_point()+
+  geom_line()+
+  labs(x = "Date",
+       y = "Average Monthly Spend ($)",
+       subtitle = "However, the average monthly spending has been trending downwards; Seasonality still present.")
+
+ggplot(plot_data, aes(x = time_lvl_st_dt, y = n))+
+  geom_point()+
+  geom_line()+
+  labs(x = "Date",
+       y = "Total number of transactions",
+       subtitle = "The descrepancy can be explained given the increasing number of transactions.")
+
+ggplot(plot_data, aes(x = month, y = total, col = year))+geom_point()
+ggplot(plot_data, aes(x = month, y = mean, col = year))+geom_point()
+
+#Get most recent sequence
+mbr_max_sequence <- scene_mbr_dim %>%
+  group_by(scene_mbr_key)%>%
+  arrange(desc(scene_mbr_key))%>%
+  summarise(max_sequence = max(scene_mbr_seq_num))
+
+scene_dim_test <- left_join(scene_mbr_dim, mbr_max_sequence, by = "scene_mbr_key") %>%
+  filter(scene_mbr_seq_num == max_sequence)%>%
+  select(-max_sequence)
+
+#Test to make sure recent sequence code works
+test <- scene_dim_test %>%
+  group_by(scene_mbr_key) %>%
+  summarise(n = n())
+
+#Should print 1
+max(test$n)
+
+#Create first data frame with age of account
+
+scene_mbr_acct_dim_test <- scene_mbr_acct_dim %>%
+  mutate(date = as.Date(acct_eff_from_tmstamp),
+         scene_mbr_key = prim_scene_mbr_key) %>%
+  group_by(prim_scene_mbr_key) %>%
+  select(scene_mbr_key, date)
+
+# Would need to fix this
+max_date <- max(scene_mbr_acct_dim_test$date)
+
+scene_mbr_acct_dim_test <- scene_mbr_acct_dim_test %>% 
+  mutate(account_age = as.integer(max_date - date)) %>%
+  ungroup()%>%
+  select(scene_mbr_key, account_age)
+
+#Create second data frame from demographic information
+scene_mbr_dim_test <- scene_mbr_dim %>% 
+  mutate_if(is.character, as.factor) %>%
+  mutate(age = 2016 - brth_dt)%>%
+  select(scene_mbr_key,
+         age,
+         gndr_desc,
+         ed_lvl_desc,
+         mrtl_stat_desc,
+         lang_desc,
+         psnl_city)
+         
+#Create third data frame to profile the accounts
+scene_pt_fact_filter_test <- scene_pt_fact_filter %>%
+  group_by(scene_mbr_key) %>%
+  summarise(mean = mean(txn_amt),
+            sd = sd(txn_amt),
+            n = n())
+
+scene_pt_fact_filter_test
+
+profile_test <- left_join(scene_pt_fact_filter_test, scene_mbr_dim_test, by = "scene_mbr_key") %>%
+  left_join(scene_mbr_acct_dim_test, by = "scene_mbr_key")
+
+transaction_df <- left_join(scene_pt_fact_filter, profile_test, by = "scene_mbr_key") %>%
+  select(txn_amt,
+         anul_clndr_code,
+         mo_clndr_code,
+         mean,
+         sd,
+         n,
+         age,
+         gndr_desc,
+         ed_lvl_desc,
+         mrtl_stat_desc,
+         lang_desc,
+         account_age,
+         psnl_city
+         )
+
+transaction_df$anul_clndr_code <- as.factor(transaction_df$anul_clndr_code)
+
+str(transaction_df)
+
+ip <- "192.168.30.21"
+port <- 60035
+
+transaction_df <- transaction_df[!is.na(transaction_df$sd),]
+transaction_df <- transaction_df[!is.na(transaction_df$age),]
+transaction_df <- transaction_df[!is.na(transaction_df$account_age),]
+
+sum(is.na(transaction_df))
+
+fitControl <- trainControl(## 10-fold CV
+  method = "repeatedcv",
+  number = 10)
+
+n = nrow(transaction_df)
+trainIndex = sample(1:n, size = round(0.7*n), replace=FALSE)
+train = transaction_df[trainIndex ,]
+test = transaction_df[-trainIndex ,]
+
+
+
+gbmFit1 <- train(txn_amt ~ ., data = train, 
+                 method = "gbm", 
+                 trControl = fitControl,
+                 ## This last option is actually one
+                 ## for gbm() that passes through
+                 verbose = TRUE
+                 )
+
+pred <- predict(gbmFit1, test)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # This table has the most recent month that a customer spent something
 most_recent_month <- scene_pt_fact_filter %>%
@@ -276,7 +464,7 @@ master_table <- left_join(master_table,
 na_filter <- is.na(master_table)
 master_table[na_filter] <- 0
 
-master_table_final <- master_table %>%
+transaction_df <- master_table %>%
   ungroup()%>%
   select(-scene_mbr_key)%>%
   filter(yr_month =="2016-09-01")
@@ -298,10 +486,10 @@ fitControl <- trainControl(## 10-fold CV
   method = "repeatedcv",
   number = 10)
 
-n = nrow(master_table_final)
+n = nrow(transaction_df)
 trainIndex = sample(1:n, size = round(0.7*n), replace=FALSE)
-train = master_table_final[trainIndex ,]
-test = master_table_final[-trainIndex ,]
+train = transaction_df[trainIndex ,]
+test = transaction_df[-trainIndex ,]
 
 
 
@@ -322,7 +510,7 @@ pe <- pe[!is.infinite(pe)]
 mean(pe)
 
 h2o.init()
-master_table_h2o <- as.h2o(master_table_final)
+master_table_h2o <- as.h2o(transaction_df)
 
 splits <- h2o.splitFrame(master_table_h2o, 0.8)
 train <- splits[[1]]
