@@ -154,7 +154,9 @@ scene_joined<-scene_loyalty_pt%>%
          jul_2016_cin_amt=cin_amt,
          jul_2016_promo_bonus_pt=promo_bonus_pt,
          jul_2016_enroll_bonus_pt=enroll_bonus_pt,
-         jul_2016_regular_pt=regular_pt
+         jul_2016_regular_pt=regular_pt,
+         jul_2016_non_cin_pt = non_cin_pt,
+         jul_2016_non_cn_amt = non_cin_amt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -176,7 +178,9 @@ scene_joined<-scene_loyalty_pt%>%
          jun_2016_cin_amt=cin_amt,
          jun_2016_promo_bonus_pt=promo_bonus_pt,
          jun_2016_enroll_bonus_pt=enroll_bonus_pt,
-         jun_2016_regular_pt=regular_pt
+         jun_2016_regular_pt=regular_pt,
+         jun_2016_non_cin_pt = non_cin_pt,
+         jun_2016_non_cn_amt = non_cin_amt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -198,7 +202,9 @@ scene_joined<-scene_loyalty_pt%>%
          may_2016_cin_amt=cin_amt,
          may_2016_promo_bonus_pt=promo_bonus_pt,
          may_2016_enroll_bonus_pt=enroll_bonus_pt,
-         may_2016_regular_pt=regular_pt
+         may_2016_regular_pt=regular_pt,
+         may_2016_non_cin_pt = non_cin_pt,
+         may_2016_non_cn_amt = non_cin_amt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -220,7 +226,9 @@ scene_joined<-scene_loyalty_pt%>%
          apr_2016_cin_amt=cin_amt,
          apr_2016_promo_bonus_pt=promo_bonus_pt,
          apr_2016_enroll_bonus_pt=enroll_bonus_pt,
-         apr_2016_regular_pt=regular_pt
+         apr_2016_regular_pt=regular_pt,
+         apr_2016_non_cin_pt = non_cin_pt,
+         apr_2016_non_cn_amt = non_cin_amt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -243,7 +251,9 @@ scene_joined<-scene_loyalty_pt%>%
          mar_2016_cin_amt=cin_amt,
          mar_2016_promo_bonus_pt=promo_bonus_pt,
          mar_2016_enroll_bonus_pt=enroll_bonus_pt,
-         mar_2016_regular_pt=regular_pt
+         mar_2016_regular_pt=regular_pt,
+         mar_2016_non_cin_pt = non_cin_pt,
+         mar_2016_non_cn_amt = non_cin_amt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -265,7 +275,9 @@ scene_joined<-scene_loyalty_pt%>%
          feb_2016_cin_amt=cin_amt,
          feb_2016_promo_bonus_pt=promo_bonus_pt,
          feb_2016_enroll_bonus_pt=enroll_bonus_pt,
-         feb_2016_regular_pt=regular_pt
+         feb_2016_regular_pt=regular_pt,
+         feb_2016_non_cin_pt = non_cin_pt,
+         feb_2016_non_cn_amt = non_cin_amt
          )%>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
@@ -327,7 +339,7 @@ scene_data <- scene_data %>%
      -scene_mbr_key,
     -scene_mbr_seq_num,
     -eff_from_tmstamp,
-    -eff_to_tmstamp,
+    -eff_to_tmstamp
         )
 
 
@@ -361,7 +373,7 @@ The following code chunk presents the skeleton for the H2O models.
 
 ######## Following Skeleton Code may not completely run as of now #######
 
-h2o.init(ip = "192.168.30.21", port = 56526)
+h2o.init(ip = "192.168.30.21", port = 52571)
 
 scene_data <- as.h2o(scene_data)
 
@@ -388,11 +400,14 @@ test <- splits[[2]]
 
 
 # Tell h2o which are response variables and which are features
-y <- "aug_2016.y"  
-x <- names[names(scene_data)!=y & names(scene_data)!="aug_2016.x"] 
+y <- "aug_2016"  
+x <- names[names(scene_data)!=y]
 
+#& names(scene_data)!="aug_2016.x"] <--- wtf is this?
 
 ```
+
+
 
 ```{r}
 
