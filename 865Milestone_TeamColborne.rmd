@@ -28,6 +28,7 @@ library(sparklyr)
 library(rsparkling)
 library(h2o)
 library(forecast)
+library(ggthemes)
 
 #MAPE
 mape<-function(actual, fitted){
@@ -121,19 +122,12 @@ scene_pt_fact <- scene_pt_fact_filter %>%
   summarise(txn_amt = sum(txn_amt))
 
 
-#Initialize the dataframe that we'll use to create the lagged variables and then chain joins onto:
-scene_joined <- scene_pt_fact%>%
-  filter(anul_clndr_code == 2016 & mo_clndr_code == "September")%>%
-  group_by(scene_mbr_key)%>%
-  summarise(sept_2016=sum(txn_amt))
-
 #Now copy and paste the slightly altered code for each month and join it onto the original dataframe
 
 scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "August")%>%
   group_by(scene_mbr_key)%>%
-  summarise(aug_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  summarise(aug_2016=sum(txn_amt))
 
 scene_joined<-scene_pt_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "July")%>%
@@ -309,34 +303,88 @@ scene_columns <- c("scene_mbr_key",
   
 ```
 
+```{r}
+#First we'll replace all the NAs with 0 because we're working in R
+scene_joined[is.na(scene_joined)]<-0
+
+#Plot the standard deviations and mean
+
+scene_joined$mean<-rowMeans(scene_joined[,2:24], na.rm=TRUE)
+
+scene_joined$sd<-apply(scene_joined[,2:24], MARGIN = 1, FUN=sd)
+
+scene_joined<-scene_joined%>%
+  mutate(Sharpe=mean/sd)
+
+#Let's make some plots to throw in the presentation
+
+sharpe_hist<-ggplot(scene_joined, aes(Sharpe))+
+  geom_histogram()+
+                 labs(x="Sharpe Ratio (Mean Spend / Standard Deviation in Spend)",
+                      y= "Frequency",
+                      title= "Distribution of Customer Sharpe Ratio")+
+  geom_vline(xintercept = 2, col="Blue", size=1.4)+
+  theme_economist(base_size=15)
+
+sharpe_hist
+
+sharpe_scatter<-ggplot(scene_joined, aes(sd))+
+  geom_point(aes(y=mean))+
+  geom_abline(intercept=0, slope=2, size=1.4, col="Blue")+
+  coord_cartesian(xlim=c(0,3000),ylim=c(0,3000))+
+  labs(x="Standard Deviation of Spend",
+        y= "Average Monthly Spend",
+       title= "Customer Spend for Past 24 Months")+
+  theme_economist(base_size=15)
+
+sharpe_scatter
+
+
+
+```
+
 
 
 ```{r, ARIMA Modelling, echo=FALSE}
 
-scene_joined<-scene_joined%>%
-  select(-sept_2016)%>%
-  data.frame()
-scene_joined[is.na(scene_joined)]<-0
 
-scene_transpose<-t(scene_joined)
+#Let's create a subset of customers who are 'reliable spendes' and see if we can predict them easier
 
-#now lets save teh member keys in a new vector and get rid of them for the time series analysis
-actuals<-scene_transpose[c(1,"aug_2016)"),]
-scene_transpose<-scene_transpose[-1,]
+sharpe<-scene_joined%>%
+  filter(Sharpe>2)
+
+actuals<-sharpe%>%
+  select(scene_mbr_key,
+         aug_2016)
+
+sharpe<-sharpe%>%
+  select(-scene_mbr_key, 
+         -aug_2016,
+         -mean,
+         -sd,
+         -Sharpe)
+
+
+data<-sharpe
+length<-nrow(actuals)
+
+#Let's take the transpose so that we can make it a time series object
+transpose<-t(data)
+
 
 #Let's create a place where we'll store our models
 
-models<-vector("list",length(members))
+models<-vector("list",length)
 
 #And now run the code to create all of the models
 
 start<-Sys.time()
 
-for (i in 1:length(members)){
+for (i in 1:length){
         
  models[[i]] <-forecast(
                       auto.arima(
-                                  ts(scene_transpose[,i],
+                                  ts(transpose[,i],
                                      start=1,
                                      end=24)),
                       h=1)
@@ -346,34 +394,104 @@ finish<-Sys.time()
 print(finish-start)
 
 #Now lets make a for loop that will tease out the predictions we just made for each customer
-fitted_arima<-as.vector(c(1:756))
+fitted_arima<-as.vector(c(1:length))
 
-for (i in 1:756){
+for (i in 1:length){
 fitted_arima[i]<-as.numeric(models[[i]]$mean)
 }
-#Let's plot the residuals
-plot(scene_joined$aug_2016, fitted_arima)
 
+actuals$fitted<-fitted_arima
 #Let's calculate the mean absolute error and RMSE
-mean(abs(scene_joined$aug_2016-fitted_arima))
-rmse(scene_joined$aug_2016, fitted_arima)
+mean(abs(actuals$aug_2016-fitted_arima))
+mean(actuals$aug_2016)
+
+arima_residuals<-ggplot(actuals, aes(x=fitted))+
+  geom_point(aes(y=aug_2016))+
+  coord_cartesian(xlim=c(0,4000),ylim=c(0,4000))+
+  labs(x="Fitted Value",
+        y= "Actual Spend",
+       title= "Residual Plot for Consistent Customers")+
+  theme_economist(base_size=15)
+
+arima_residuals
+
+#Adjusted MAPE because mape function wont work for observatiosn where actual is zero (undefined solution)
+Adj_mape = mean(abs(actuals$aug_2016-fitted_arima))/mean(actuals$aug_2016)
+print(Adj_mape)
 
 
-#For benchmarking purposes, lets plot how it would look if we just predicted the mean june spend for every customer.
-
-fitted_mean<-rep(mean(scene_joined$jul_2016),length(scene_joined$jul_2016))
-head(fitted_mean)
-
-mean(abs(scene_joined$aug_2016-fitted_mean))
-rmse(scene_joined$aug_2016, fitted_mean)
-
-#And now let's dive in a bit deeper
-
+rmse(actuals$aug_2016, fitted_arima)
 
 
 ```
-#Feature Engineering
-Decision to keep location data and omit some highly correlated variables from datasets for different types of models. 
+
+
+```{r, caret Modelling, echo=FALSE}
+
+#Let's create a subset of customers who are 'reliable spenders' and see if we can predict them easier
+
+sharpe<-scene_joined%>%
+  filter(Sharpe<2)
+
+#First let's merge the demographic data
+scene_data <- scene_mbr_dim%>%
+                  select(one_of(scene_columns))%>%
+              inner_join(y=sharpe, by = "scene_mbr_key")
+scene_data[is.na(scene_data)]<-0
+
+train_data_set <- scene_data %>%
+  select(
+    -scene_mbr_key,
+    -scene_mbr_seq_num,
+    -eff_from_tmstamp,
+    -eff_to_tmstamp,
+    -Sharpe
+  )
+
+
+library(caret)
+
+#Random Forest stuff from Blue Jays
+kfolds=5
+search.length=10
+data<-train_data_set
+
+cvCtrl <- trainControl(method="cv",
+                       number=kfolds)
+
+forest <- train(aug_2016~., 
+                method="ranger",
+                trControl=cvCtrl,
+                data=data,
+                importance=TRUE,
+                tuneLength=search.length)
+
+
+
+forest_residuals<-data.frame(cbind(data$aug_2016, forest$finalModel$predicted))
+colnames(forest_residuals)<-c("actual", "fitted")
+
+#Mean Absolute Error
+MAE <- mean(abs(forest_residuals$actual-forest_residuals$fitted))
+
+#RMSE
+rmse(forest_residuals$actual,forest_residuals$fitted)
+
+#Adjusted MAPE
+mean(abs(forest_residuals$actual-forest_residuals$fitted))/mean(forest_residuals$actual)
+
+forest_res_plot<-ggplot(forest_residuals, aes(x=fitted))+
+  geom_point(aes(y=actual))+
+  coord_cartesian(xlim=c(0,4000),ylim=c(0,4000))+
+  labs(x="Fitted Value",
+        y= "Actual Spend",
+       title= "Residual Plot for Erratic Customers")+
+  theme_economist(base_size=15)
+
+forest_res_plot
+
+```
+
 
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 #Converting birth year to age
