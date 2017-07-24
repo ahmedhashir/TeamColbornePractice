@@ -7,7 +7,8 @@ library(h2o)
 library(lubridate)
 library(zoo)
 library(caret)
-
+library(plyr)
+library(dplyr)
 
 
 
@@ -132,7 +133,7 @@ scene_mbr_dim_test <- scene_mbr_dim %>%
 #Create third data frame to profile the accounts
 scene_pt_fact_filter_test <- scene_pt_fact_filter %>%
   group_by(scene_mbr_key) %>%
-  summarise(mean = mean(txn_amt),
+  dplyr::summarise(mean = mean(txn_amt),
             sd = sd(txn_amt),
             n = n())
 
@@ -162,7 +163,7 @@ transaction_df$anul_clndr_code <- as.factor(transaction_df$anul_clndr_code)
 str(transaction_df)
 
 ip <- "192.168.30.21"
-port <- 60035
+port <- 22950
 
 transaction_df <- transaction_df[!is.na(transaction_df$sd),]
 transaction_df <- transaction_df[!is.na(transaction_df$age),]
@@ -182,7 +183,7 @@ test = transaction_df[-trainIndex ,]
 
 
 gbmFit1 <- train(txn_amt ~ ., data = train, 
-                 method = "gbm", 
+                 method = "ranger", 
                  trControl = fitControl,
                  ## This last option is actually one
                  ## for gbm() that passes through
@@ -193,7 +194,41 @@ pred <- predict(gbmFit1, test)
 
 
 
+h2o.init(ip = ip, port= port)
+master_table_h2o <- as.h2o(transaction_df)
 
+splits <- h2o.splitFrame(master_table_h2o, 0.8)
+train <- splits[[1]]
+test <- splits[[2]]
+
+# Tell h2o which are response variables and which are features
+y <- "txn_amt"  
+x <- c("anul_clndr_code",
+            "mo_clndr_code",
+            "mean",
+            "sd",
+            "n",
+            "age",
+            "gndr_desc",
+            "ed_lvl_desc",
+            "mrtl_stat_desc",
+            "lang_desc",
+            "account_age",
+            "psnl_city"
+)
+
+m_rf_default <- h2o.randomForest(x, y, train, nfolds = 3, model_id = "RF_defaults")
+
+# Show the performance on the test set
+h2o.performance(m_rf_default, test)
+
+m_gbm_default <- h2o.gbm(x, y, train, nfolds = 3, model_id = "GBM_defaults")
+
+h2o.performance(m_gbm_default, test)
+
+m_dl_default <- h2o.deeplearning(x, y, train, nfolds = 3, model_id = "GBM_defaults")
+
+h2o.performance(m_dl_default, test)
 
 
 
