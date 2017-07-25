@@ -1,0 +1,391 @@
+---
+title: "How much will a SCENE customer spend next month?"
+author: "Team Colborne"
+output: 
+  html_notebook:
+    code_folding: hide
+    toc: yes
+    toc_float: yes
+---
+
+#Project Summary
+
+Team Colborne initiated the project by separating into two teams, one of which would explore the data in the R environemnt, the other would look into migrating the findings from the R environment into Spark through *sparklyr*. Early in the data exploration phase, the Spark team noticed techonological gaps between data filtering and evaluation capabilities in R vs. in *sparklyr*. Given the nature of the course as a **Big Data** course, we agreed that although the learning curve may be steeper, the team would commit to using *sparklyr*, acknowledging that data cleaning, filtering and troubleshooting documentation may be more difficult. 
+
+The goal of Team Colborne for this project was to build a model to predict how much a SCENE customer will spend next month, and to evaluate the factors that contribute to spending. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r data_load, echo = TRUE, message = FALSE, warning = FALSE, results = "hide"}
+rm(list=ls())
+library(tidyverse)
+library(data.table)
+library(sparklyr)
+library(rsparkling)
+library(h2o)
+
+# NOTE: Comment out either Spark or R script depending on where you'd like to run. The Spark cluster has been riddled with problems, this will allow us to iterate quicker.
+
+# # Spark script
+#  config <- spark_config()
+#  config$'sparklyr.shell.executor-memory' <- "30g"
+#  config$'sparklyr.shell.driver-memory' <- "10g"
+#  # config$spark.yarn.am.memory <- "15g"
+# 
+# # Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
+# # 
+# start<-Sys.time()
+# sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
+# # 
+#  in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample03/clean/'
+# # 
+#  scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
+# # 
+#  scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
+# # 
+#  scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
+# finish<-Sys.time()
+# 
+# print(finish-start)
+
+#R script
+in_path_r = '/global/project/queens-mma/scene-csv/sample003/clean/'
+
+
+scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
+scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
+scene_pt_fact <-fread(paste(in_path_r, 'scene_pt_fact.csv', sep=""), sep=",")
+```
+
+#Data Wrangling
+
+```{r data_wrangle, echo = TRUE, message = FALSE, warning = FALSE}
+# Get a sense of the statistics for the spending amount.
+# Chose 12 standard deviations to include high spenders, but not extreme case spenders (10k+)
+stats <- scene_pt_fact %>% 
+  filter(is.na(txn_amt)==FALSE) %>%
+  summarise(sd = sd(txn_amt),
+            mean = mean(txn_amt),
+            upper_bound = mean + 12*sd)
+
+#First let's filter for transactions that are between 0 and 10k, based on the upper bound stat we computed earlier
+scene_pt_fact_filter <- scene_pt_fact %>%
+  filter(txn_amt <= 10000) %>%
+  select(scene_mbr_key, txn_amt, time_lvl_st_dt)
+
+# Get the most recent sequence number so that we're using the most up to date record.
+scene_dim1 <- scene_mbr_dim %>% 
+  group_by(scene_mbr_key,scene_mbr_seq_num) %>%
+  arrange(desc(scene_mbr_seq_num))%>%
+  ungroup() 
+
+ scene_dim2 <- scene_mbr_dim %>% 
+  group_by(scene_mbr_key) %>%
+  arrange(desc(scene_mbr_seq_num)) %>%
+  summarise(scene_mbr_seq_num = max(scene_mbr_seq_num))
+
+# An alternative to distinct function to delete duplicate entries  
+scene_mbr_dim <- inner_join(scene_dim2,scene_dim1)
+
+# Aggregating transaction amount by the month, year and trans type
+
+# Initialize the dataframe that we'll use to create the lagged variables
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2016-08-01") %>%
+  group_by(scene_mbr_key) %>%
+  summarise(aug_2016 = sum(txn_amt))
+
+#Now that we've created the data frame on which we'll join lagged variables, let's create a "response" dataset that will only include transactions from the customers who spent money in August 2016. 
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2016-07-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(jul_2016 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#June 2016 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2016-06-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(jun_2016 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#May 2016 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2016-05-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(may_2016 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#April 2016 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2016-04-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(apr_2016 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#March 2016 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2016-03-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(mar_2016 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#February 2016 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2016-02-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(feb_2016 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#January 2016 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2016-01-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(jan_2016 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#December 2015 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2015-12-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(dec_2015 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#November 2015 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2015-11-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(nov_2015 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#October 2015 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2015-10-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(oct_2015 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#September 2015 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2015-09-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(sept_2015 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#August 2015 Lagged Spending
+scene_joined <- scene_pt_fact_filter %>%
+  filter(time_lvl_st_dt == "2015-08-01")%>%
+  group_by(scene_mbr_key) %>%
+  summarise(aug_2015 = sum(txn_amt)) %>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+#Change NA to $0 spending
+scene_joined[is.na(scene_joined)] <- 0
+
+# # Logic for OUR DEFINITION OF LOYAL CUSTOMER 
+# # Customers who have spend in every last 6 months
+# scene_joined <- scene_joined %>%
+#   filter(feb_2016 > 0 & mar_2016 > 0 & apr_2016 > 0 
+#            & may_2016 > 0 & jun_2016 > 0 & jul_2016 > 0 )
+
+scene_columns <- c("scene_mbr_key",
+                   "scene_mbr_seq_num",
+                   "eff_from_tmstamp",
+                   "eff_to_tmstamp",
+                   "brth_dt",
+                   "psnl_post_cd",
+                   "psnl_prov_state_cd",
+                   "psnl_city",  
+                   "suspended_f",
+                   "gndr_desc",
+                   "prefrd_loctn_desc",
+                   "email_prefnc_desc",
+                   "ed_lvl_desc",
+                   "prefrd_show_tm_desc",
+                   "num_of_hh_pple_desc",
+                   "movie_gng_frq_ref_desc",
+                   "mrtl_stat_desc",
+                   "lang_desc",
+                   "scene_acty_stat")
+
+#Join Customer Dimension Data with scene_data
+
+scene_data <- scene_mbr_dim%>%
+                  select(one_of(scene_columns))%>%
+              right_join(scene_joined, by = "scene_mbr_key")
+
+#Converting birth year to age
+scene_data <- scene_data %>% 
+  mutate(Age = 2017 - brth_dt)%>%
+  select(-brth_dt)
+
+scene_data <- scene_data %>%
+  select(-scene_mbr_key, 
+         -scene_mbr_seq_num, 
+         -eff_from_tmstamp, 
+         -eff_to_tmstamp, 
+         -psnl_post_cd, 
+         -prefrd_loctn_desc
+         )
+```
+
+#Models
+
+Team Colborne decided to use H2O as their machine learning library from the outset so that the models could be easily transferred to the *sparklyr* environment using the package *rsparkling*. Preliminary research has indicated H2O has several key advantages over Spark MLlib, namely:
+
+- Benchmark testing has indicated that H2O is significantly faster. Given the limitations of the Spark cluster we've been provided, speeding up our learning models will allow us to iterate quickly.
+
+- H2O provides a common interface for training and evaluating the machine learning algorithms, similar to what is available in the *caret* package. Given that this will be our first exposure to H2O, we believe this will allow us to quickly learn the syntax and apply it across numerous models.
+
+- Models such as deep learning, ensemble stacking, and others, are not yet available in Spark MLlib. The Team is interested in experimenting with these approaches, and this would not be possible without H2O.
+
+For modeling purposes, we have identified three candidate models that we believe will provide a necessary baseline from which to work. More specifically, we have selected GLM using the Elastic Net family, Random Forest, and Gradient Boosted Machines. 
+
+Given that elastic nets are able to perform variable selection and the models are interpretable, we are planning to use the elastic net model in our presentation of our findings. We should be able to talk about effect sizes and the significance of the variables that we have selected. However, we acknowledge that is unlikely to be the best model.
+
+As a result, we have decided to augment our business insights with models that have more predictive power. We plan to use the variable importance function to confirm the validity of the variables that were selected from elastic nets, and then use the models we create from RF and GBM to deliver more accurate predictions.
+
+The following code chunk presents the skeleton for the H2O models. 
+
+```{r models}
+
+#Initialize H2O cluster with MobaXterm and file from Jeff
+
+h2o.init(ip = "192.168.30.21", port = 46070)
+
+h2o_data <- as.h2o(scene_data)
+
+names <- names(h2o_data)
+char_names <- names[is.character(h2o_data[,names])]
+
+h2o_data[,char_names] <- as.factor(h2o_data[,char_names])
+
+splits <- h2o.splitFrame(h2o_data, c(0.6,0.2))
+train <- splits[[1]]
+valid <- splits[[2]]
+test <- splits[[3]]
+
+y <- "aug_2016"  
+x <- names[names(h2o_data)!=y]
+
+m_rf_default <- h2o.randomForest(x, y, train, validation_frame = valid, model_id = "RF_defaults")
+m_gbm_default <- h2o.gbm(x, y, train, validation_frame = valid, model_id = "GBM_defaults")
+m_dl_default <- h2o.deeplearning(x, y, train, validation_frame = valid, model_id = "DL_defaults")
+
+# Show the performance on the test set
+rf_perf_df <- h2o.performance(m_rf_default, test)
+gbm_perf_df <- h2o.performance(m_gbm_default, test)
+dl_perf <- h2o.performance(m_dl_default, test)
+
+# Here's how we plan to do parameter tuning!
+search_criteria = list(strategy = "RandomDiscrete", 
+                       max_runtime_secs = 60*20, 
+                       max_models = 100, 
+                       stopping_metric = "RMSE", 
+                       stopping_tolerance = 0.00001, 
+                       stopping_rounds = 5, 
+                       seed = 123456)
+
+g_rf <- h2o.grid("randomForest",
+                 hyper_params = list(
+                   ntrees = 120,
+                   max_depth = 60,
+                   min_rows = 2,
+                   mtries = 5)
+                 x = x, 
+                 y = y, 
+                 training_frame = train, 
+                 validation_frame = valid)
+
+rf_grid <- h2o.getGrid(g_rf@grid_id, sort_by = "RMSE", decreasing = FALSE)
+best_rf_model_id <- rf_grid@model_ids[[1]]
+m_rf_tuned <- h2o.getModel(best_rf_model_id)
+
+rf_perf_t <- h2o.performance(m_rf_tuned, test)
+
+g_gbm <- h2o.grid("gbm",
+                hyper_params = list(
+                  ntrees = c(100, 120),
+                  max_depth = c(40, 60),
+                  min_rows = c(1, 2),
+                  sample_rate = c(0.7, 0.8, 0.9, 1),
+                  col_sample_rate = c(0.7, 0.9, 1),
+                  nbins = c(8, 12, 16, 20, 24, 28, 32)),
+              search_criteria = search_criteria,
+              x = x, 
+              y = y, 
+              training_frame = train, 
+              validation_frame = valid)
+
+gbm_grid <- h2o.getGrid(g_gbm@grid_id, sort_by = "RMSE", decreasing = FALSE)
+best_gbm_model_id <- gbm_grid@model_ids[[1]]
+m_gbm_tuned <- h2o.getModel(best_gbm_model_id)
+gbm_perf_t <- h2o.performance(m_gbm_tuned, test)
+
+
+```
+
+```{r Visualize Residuals, echo=FALSE}
+#The following was done in R for speed purposes
+
+#First lets build a dataframe with the h2o test set
+test_dataframe<-as.data.frame(test)
+
+#Now we need to make the predictions
+
+rf_fitted_h2o<-h2o.predict(m_rf_default, test)
+rf_fitted<-as.vector(rf_fitted_h2o)
+
+gbm_fitted_h2o<-h2o.predict(m_gbm_default, test)
+gbm_fitted<-as.vector(gbm_fitted_h2o)
+
+#gbm2 is going to be the tuned gbm model so we can compare
+
+gbm2_fitted_h2o<-h2o.predict(g_gbm, test)
+gbm2_fitted<-as.vector(gbm2_fitted_h2o)
+
+#ggplot2 likes all your data to be in the same dataframe, so let's do that now
+
+predictions<-data.frame(cbind(test_dataframe$aug_2016, rf_fitted, gbm_fitted))
+colnames(predictions)<-c("actual", "rf","gbm")
+
+
+rf_res<-ggplot(predictions, aes(x=actual))+
+  geom_jitter(aes(y=rf))
+
+gbm_res<-ggplot(predictions, aes(x=actual))+
+  geom_jitter(aes(y=gbm))
+
+library(gridExtra)
+grid.arrange(gbm_res, rf_res, ncol=1,nrow=2,
+         top=("0003 Sample Residuals"))
+
+```
+
+```{r,echo = FALSE, message = FALSE, warning = FALSE}
+###Plots of txn_amt to indicate outliers
+
+#boxplot of txn_amt for the original transaction data
+ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+
+  geom_boxplot(outlier.colour = "red", outlier.shape = 1)+
+  labs(x = "year",
+         y = "transaction amount",
+         title = "Plot for the original transaction data")
+ 
+
+#boxplot of txn_amt after filtering transaction data
+ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+
+  geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ 
+  labs(x = "year",
+         y = "transaction amount",
+         title = "Plot for the filtered transaction data")
+
+#histogram of txn_amt 
+ggplot(scene_pt_fact_filter, aes(txn_amt))+
+  geom_histogram(binwidth = 300)+
+  labs(x = "transaction amount",
+         title = "Histogram for transaction amount")
