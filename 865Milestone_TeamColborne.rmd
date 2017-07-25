@@ -29,6 +29,11 @@ library(rsparkling)
 library(h2o)
 library(forecast)
 library(ggthemes)
+library(formatR)
+
+
+tidy_source()
+
 
 #Let's create a MAPE function for use later in the model building process
 mape<-function(actual, fitted){
@@ -50,7 +55,6 @@ mae<-function(actual, fitted){
 #and finally adjusted mape, which will be the mean average error as a percentage of the average actual spend
 adj_mape<-function(actual, fitted){
   mae(actual)/(actual-fitted)
-  
 }
 
 ```
@@ -323,98 +327,98 @@ nrow(filter(scene_ts, Sharpe<2))/nrow(scene_ts)
 start<-Sys.time()
 
 #Let's create a subset of customers who are 'reliable spenders' and see if we can predict them easier
-consistent<-scene_ts%>%
+consistent <- scene_ts %>%
   filter(Sharpe>2)
 
 #And do the same for erratic spenders
-erratic<-scene_ts%>%
+erratic <- scene_ts %>%
   filter(Sharpe<2)
 
 #Create a dataframe on which we'll bind our forecasted spend for aug_2016 for comparing later.
-consistent_actuals<-consistent%>%
+consistent_actuals <- consistent %>%
   select(aug_2016)
 
 #and do the same for erratic
-erratic_actuals<-erratic%>%
+erratic_actuals <- erratic %>%
   select(aug_2016)
 
 #And now get rid of all the excess columns so that it's a true time series array
-consistent_ts<-consistent%>%
+consistent_ts <- consistent %>%
   select(-aug_2016,
          -mean,
          -sd,
          -Sharpe)
 
 #and the same for erratic...
-erratic_ts<-erratic%>%
-  select(-aug_2016,
-         -mean,
-         -sd,
-         -Sharpe)
+erratic_ts <- erratic %>%
+                select(-aug_2016,
+                       -mean,
+                       -sd,
+                       -Sharpe)
 
 #And now do the modelling for consistent
 
-data<-consistent_ts
-length<-nrow(data)
+data <- consistent_ts
+length <- nrow(data)
 
 #Let's take the transpose so that we can make it a time series object
-transpose<-t(data)
+transpose <- t(data)
 
 #Let's create a place where we'll store our models
-consistent_models<-vector("list",length)
+consistent_models <- vector("list",length)
 
 #And now run the code to create all of the models
 for (i in 1:length){
- consistent_models[[i]] <-forecast(
-                      auto.arima(
-                                  ts(transpose[,i],
-                                     start=1,
-                                     end=24)),
-                      h=1)
-}
+ consistent_models[[i]] <- forecast(
+                                    auto.arima(
+                                                ts(transpose[,i],
+                                                   start=1,
+                                                   end=24)),
+                                   h=1)
+                    }
 
 #Now lets make a for loop that will tease out the predictions we just made for each customer
-fitted_arima<-as.vector(c(1:length))
+fitted_arima <- as.vector(c(1:length))
 
 for (i in 1:length){
-fitted_arima[i]<-as.numeric(consistent_models[[i]]$mean)
+fitted_arima[i] <- as.numeric(consistent_models[[i]]$mean)
 }
 
-consistent_actuals$fitted<-fitted_arima
+consistent_actuals$fitted <- fitted_arima
 
 #-------------------------------------------------------------
 #And now do the modelling for Erratic....
 
-data<-erratic_ts
-length<-nrow(data)
+data <- erratic_ts
+length <- nrow(data)
 
 #Let's take the transpose so that we can make it a time series object
-transpose<-t(data)
+transpose <- t(data)
 
 #Let's create a place where we'll store our models
-erratic_models<-vector("list",length)
+erratic_models <- vector("list",length)
 
 #And now run the code to create all of the models
 for (i in 1:length){
- erratic_models[[i]] <-forecast(
-                      auto.arima(
-                                  ts(transpose[,i],
-                                     start=1,
-                                     end=24)),
-                      h=1)
-}
+ erratic_models[[i]] <- forecast(
+                                auto.arima(
+                                            ts(transpose[,i],
+                                               start=1,
+                                               end=24)),
+                                 h=1)
+                    }
 
 #Now lets make a for loop that will tease out the predictions we just made for each customer
-fitted_arima<-as.vector(c(1:length))
+fitted_arima <- as.vector(c(1:length))
 
 for (i in 1:length){
-fitted_arima[i]<-as.numeric(erratic_models[[i]]$mean)
-}
+                    fitted_arima[i]<-as.numeric(erratic_models[[i]]$mean)
+                    }
 
-erratic_actuals$fitted<-fitted_arima
+erratic_actuals$fitted <- fitted_arima
 
 #And now we're across the finish line:
-finish<-Sys.time()
+finish <- Sys.time()
 print(finish-start)
 
 ```
@@ -452,7 +456,7 @@ arima_residuals_consistent<-ggplot(consistent_actuals, aes(x=fitted, y=aug_2016)
   coord_cartesian(xlim=c(0,4000),ylim=c(0,4000))+
   labs(x="Fitted Value",
         y= "Actual Spend",
-       title= "Residual Plot for Erratic Customers")+
+       title= "Residual Plot for Consistent Customers")+
   theme_bw(base_size=15)
 
 arima_residuals_consistent
@@ -564,7 +568,8 @@ test_data_set <- test_data_set %>% mutate_if(is.character, as.factor)
 
 #Use of h2o because some other feature engineering can't be done in Spark
 
-```{r}
+```{r h2o Modelling}
+
 h2o.init(nthreads = -1)
 
 scene_data <- as.h2o(scene_data)
@@ -736,6 +741,8 @@ best_glm_model_id <- glm_grid@model_ids[[1]]
 m_glm_tuned <- h2o.getModel(best_glm_model_id)
 
 ```
+
+
 
 ```{r, ARIMA Modelling using APPLY, echo=TRUE}
 
