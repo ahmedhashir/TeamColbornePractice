@@ -30,16 +30,27 @@ library(h2o)
 library(forecast)
 library(ggthemes)
 
-#MAPE
+#Let's create a MAPE function for use later in the model building process
 mape<-function(actual, fitted){
      100*mean(
           abs(actual-fitted)/actual)
 }
 
-
+#And make one for Root Mean Squared Error too...
 rmse <- function(actual,fitted)
 {
     sqrt(mean((actual-fitted)^2))
+}
+
+#and mean absolute error
+mae<-function(actual, fitted){
+  mean(abs(actual-fitted))
+}
+
+#and finally adjusted mape, which will be the mean average error as a percentage of the average actual spend
+adj_mape<-function(actual, fitted){
+  mae(actual)/(actual-fitted)
+  
 }
 
 ```
@@ -50,26 +61,8 @@ The 3 tables which are being used for analysis are *scene_mbr_dim*,*scene_mbr_ac
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 
-# # Spark script
-# config <- spark_config() 
-# config$'sparklyr.shell.executor-memory' <- "20g" 
-# config$'sparklyr.shell.driver-memory' <- "10g" 
-# config$spark.yarn.am.memory <- "15g"
-# 
-# # Full list of config options: https://spark.apache.org/docs/2.0.1/running-on-yarn.html
-# 
-# sc <- spark_connect(master = "yarn-client", spark_home = "/usr/hdp/current/spark2-client/", config=config)
-# 
-# in_path_spark = 'hdfs:///user/hpc3552/scene-csv/sample0003/clean/'
-# 
-# scene_mbr_dim <- spark_read_csv(sc, name='scene_mbr_dim', path=paste(in_path_spark, 'scene_mbr_dim.csv', sep=""), header = TRUE, delimiter = ",")
-# 
-# scene_mbr_acct_dim <- spark_read_csv(sc, name='scene_mbr_acct_dim', path=paste(in_path_spark, 'scene_mbr_acct_dim.csv', sep=""), header = TRUE, delimiter = ",")
-# 
-# scene_pt_fact <- spark_read_csv(sc, name='scene_pt_fact', path=paste(in_path_spark, 'scene_pt_fact.csv', sep=""), header = TRUE, delimiter = ",")
-
-#R script
-in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
+#R script read in the files
+in_path_r = '/global/project/queens-mma/scene-csv/sample003/clean/'
 
 scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
 scene_mbr_acct_dim <-fread(paste(in_path_r, 'scene_mbr_acct_dim.csv', sep=""), sep=",")
@@ -83,263 +76,242 @@ We have filtered for transactions that are between $0 and $10,000 to eliminate h
 
 ```{r,echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
 #Only including the rows where transaction amount between 0 and 10,000 
-scene_pt_fact_filter <- scene_pt_fact %>%
-  filter(txn_amt > 0 & txn_amt <= 10000)
+r_fact <- scene_pt_fact %>%
+  filter(txn_amt > 0 & txn_amt <= 10000)%>%
+  group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
+  summarise(txn_amt = sum(txn_amt))
 ```
 
 We are aware that our model loses some reliability given these filters. In future iterations, our model will reflect that some transactions that are greater than $0 were later reversed and will be omitted from the model.
 
 The working code for joining the Spark tables is shown below
 
-```{r}
-#grouping by member key and arranging seq entry num in desc order so as to have the latest updated account entry
+```{r Creating Lagged Variables, echo=FALSE}
 
-scene_dim1 <- scene_mbr_dim %>% 
-  group_by(scene_mbr_key,scene_mbr_seq_num) %>%
-  arrange(desc(scene_mbr_seq_num))%>%
-  ungroup() 
- scene_dim2 <- scene_mbr_dim %>% 
-  group_by(scene_mbr_key) %>%
-  arrange(desc(scene_mbr_seq_num)) %>%
-  summarise(scene_mbr_seq_num = max(scene_mbr_seq_num))
-#an alternative to distinct function to delete duplicate entries  
-scene_mbr_dim <- inner_join(scene_dim2,scene_dim1)
+#Let's create a time series dataframe that looks only at past purchase behaviour
 
-# Aggregating transaction amount by the month, year and trans type
-
-# and only keeping rows where transaction amount between 0 and 10,000 
-# Transaction amounts >10,000 are considered as outliers)
-# We are only interested in customer spending therefore ignoring negative amounts
-# however, team is aware of reversal transactions and will take care of it in the
-# final model.
-
-
-
-#We want to omit the transaction type so that each customer has one entry per month
-
-scene_pt_fact <- scene_pt_fact_filter %>%
-  group_by(scene_mbr_key, anul_clndr_code, mo_clndr_code) %>%
-  summarise(txn_amt = sum(txn_amt))
-
-
-#Now copy and paste the slightly altered code for each month and join it onto the original dataframe
-
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "August")%>%
   group_by(scene_mbr_key)%>%
   summarise(aug_2016=sum(txn_amt))
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "July")%>%
   group_by(scene_mbr_key)%>%
   summarise(jul_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "June")%>%
   group_by(scene_mbr_key)%>%
   summarise(jun_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "May")%>%
   group_by(scene_mbr_key)%>%
   summarise(may_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "April")%>%
   group_by(scene_mbr_key)%>%
   summarise(apr_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "March")%>%
   group_by(scene_mbr_key)%>%
   summarise(mar_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "February")%>%
   group_by(scene_mbr_key)%>%
   summarise(feb_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2016 & mo_clndr_code == "January")%>%
   group_by(scene_mbr_key)%>%
   summarise(jan_2016=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
 #Now let's do it for 2015 variables
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "December")%>%
   group_by(scene_mbr_key)%>%
   summarise(dec_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "November")%>%
   group_by(scene_mbr_key)%>%
   summarise(nov_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "October")%>%
   group_by(scene_mbr_key)%>%
   summarise(oct_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "September")%>%
   group_by(scene_mbr_key)%>%
   summarise(sep_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "August")%>%
   group_by(scene_mbr_key)%>%
   summarise(aug_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "July")%>%
   group_by(scene_mbr_key)%>%
   summarise(jul_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "June")%>%
   group_by(scene_mbr_key)%>%
   summarise(jun_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "May")%>%
   group_by(scene_mbr_key)%>%
   summarise(may_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "April")%>%
   group_by(scene_mbr_key)%>%
   summarise(apr_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "March")%>%
   group_by(scene_mbr_key)%>%
   summarise(mar_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "February")%>%
   group_by(scene_mbr_key)%>%
   summarise(feb_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2015 & mo_clndr_code == "January")%>%
   group_by(scene_mbr_key)%>%
   summarise(jan_2015=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2014 & mo_clndr_code == "December")%>%
   group_by(scene_mbr_key)%>%
   summarise(dec_2014=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2014 & mo_clndr_code == "November")%>%
   group_by(scene_mbr_key)%>%
   summarise(nov_2014=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2014 & mo_clndr_code == "October")%>%
   group_by(scene_mbr_key)%>%
   summarise(oct_2014=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-scene_joined<-scene_pt_fact%>%
+scene_ts<-r_fact%>%
   filter(anul_clndr_code == 2014 & mo_clndr_code == "September")%>%
   group_by(scene_mbr_key)%>%
   summarise(sep_2014=sum(txn_amt))%>%
-  right_join(y=scene_joined, by="scene_mbr_key")
+  right_join(y=scene_ts, by="scene_mbr_key")
 
-#okay now lets join it onto the demo data.
-
-scene_columns <- c("scene_mbr_key",
-                   "scene_mbr_seq_num",
-                   "eff_from_tmstamp",
-                   "eff_to_tmstamp","brth_dt",
-                   "psnl_post_cd","psnl_prov_state_cd","psnl_city",  
-                   "suspended_f",
-                   "gndr_desc",
-                   "prefrd_loctn_desc",
-                   "email_prefnc_desc",
-                   "ed_lvl_desc",
-                   "prefrd_show_tm_desc",
-                   "num_of_hh_pple_desc",
-                   "movie_gng_frq_ref_desc",
-                   "mrtl_stat_desc",
-                   "lang_desc",
-                   "scene_acty_stat")
-
-
-#Join Customer Dimension Data with scene_data
-# Excluding reference key columns from joined data
-# scene_data<- inner_join(x = scene_mbr_dim, 
-#                     y = scene_joined, 
-#                     by = "scene_mbr_key")%>%
-#               select(one_of(scene_columns))
-
-# Joining scene_data with account data
-# scene_data <- scene_mbr_dim%>%
-#                   select(one_of(scene_columns))%>%
-#               inner_join(y=scene_joined, by = "scene_mbr_key")
   
 ```
 
-```{r}
-#First we'll replace all the NAs with 0 because we're working in R
-scene_joined[is.na(scene_joined)]<-0
+```{r Selecting Lagged Variables, echo=FALSE}
 
-#Plot the standard deviations and mean
+scene_ts[is.na(scene_ts)]<-0
 
-scene_joined$mean<-rowMeans(scene_joined[,2:24], na.rm=TRUE)
 
-scene_joined$sd<-apply(scene_joined[,2:24], MARGIN = 1, FUN=sd)
+scene_ts<-scene_ts%>%
+  select(one_of("sep_2014",
+         "oct_2014",
+         "nov_2014", 
+         "dec_2014",   
+         "jan_2015",     
+         "feb_2015", 
+         "mar_2015",
+         "apr_2015",    
+         "may_2015",   
+         "jun_2015",   
+         "jul_2015",  
+         "aug_2015",  
+         "sep_2015",     
+         "oct_2015",   
+         "nov_2015",   
+         "dec_2015",   
+         "jan_2016",
+         "feb_2016",
+         "mar_2016",
+         "apr_2016",    
+         "may_2016",
+         "jun_2016",   
+         "jul_2016",   
+         "aug_2016"))
 
-scene_joined<-scene_joined%>%
+scene_ts<-scene_ts%>% 
+  mutate(mean = apply(scene_ts, MARGIN=1, FUN=mean))
+
+scene_ts<-scene_ts%>%
+  mutate(sd=apply(scene_ts, MARGIN = 1, FUN=sd))
+
+scene_ts<-scene_ts%>%
   mutate(Sharpe=mean/sd)
+
+```
+
+
+
+```{r Volatility in Customers and Plots, echo=TRUE}
+
 
 #Let's make some plots to throw in the presentation
 
-sharpe_hist<-ggplot(scene_joined, aes(Sharpe))+
-  geom_histogram()+
+sharpe_hist<-ggplot(scene_ts, aes(Sharpe))+
+  geom_histogram(color="Black",fill="Blue",alpha=0.5)+
                  labs(x="Sharpe Ratio (Mean Spend / Standard Deviation in Spend)",
                       y= "Frequency",
                       title= "Distribution of Customer Sharpe Ratio")+
-  geom_vline(xintercept = 2, col="Blue", size=1.4)+
-  theme_economist(base_size=15)
+      coord_cartesian(xlim=c(0,10),ylim=c(0,2000))+
+  theme_bw(base_size=15)
 
 sharpe_hist
 
-sharpe_scatter<-ggplot(scene_joined, aes(sd))+
-  geom_point(aes(y=mean))+
-  geom_abline(intercept=0, slope=2, size=1.4, col="Blue")+
+sharpe_scatter<-ggplot(scene_ts, aes(x=sd, y=mean))+
+  geom_point(alpha=0.1, color="Blue")+
   coord_cartesian(xlim=c(0,3000),ylim=c(0,3000))+
   labs(x="Standard Deviation of Spend",
         y= "Average Monthly Spend",
        title= "Customer Spend for Past 24 Months")+
-  theme_economist(base_size=15)
+  theme_bw(base_size=15)
 
 sharpe_scatter
 
+#Percentage that are "Consistent"
+nrow(filter(scene_ts, Sharpe>2))/nrow(scene_ts)
 
+#Percentage that are "Erratic"
+nrow(filter(scene_ts, Sharpe<2))/nrow(scene_ts)
 
 ```
 
@@ -347,42 +319,53 @@ sharpe_scatter
 
 ```{r, ARIMA Modelling, echo=FALSE}
 
+#Start the clock....
+start<-Sys.time()
 
-#Let's create a subset of customers who are 'reliable spendes' and see if we can predict them easier
-
-sharpe<-scene_joined%>%
+#Let's create a subset of customers who are 'reliable spenders' and see if we can predict them easier
+consistent<-scene_ts%>%
   filter(Sharpe>2)
 
-actuals<-sharpe%>%
-  select(scene_mbr_key,
-         aug_2016)
+#And do the same for erratic spenders
+erratic<-scene_ts%>%
+  filter(Sharpe<2)
 
-sharpe<-sharpe%>%
-  select(-scene_mbr_key, 
-         -aug_2016,
+#Create a dataframe on which we'll bind our forecasted spend for aug_2016 for comparing later.
+consistent_actuals<-consistent%>%
+  select(aug_2016)
+
+#and do the same for erratic
+erratic_actuals<-erratic%>%
+  select(aug_2016)
+
+#And now get rid of all the excess columns so that it's a true time series array
+consistent_ts<-consistent%>%
+  select(-aug_2016,
          -mean,
          -sd,
          -Sharpe)
 
+#and the same for erratic...
+erratic_ts<-erratic%>%
+  select(-aug_2016,
+         -mean,
+         -sd,
+         -Sharpe)
 
-data<-sharpe
-length<-nrow(actuals)
+#And now do the modelling for consistent
+
+data<-consistent_ts
+length<-nrow(data)
 
 #Let's take the transpose so that we can make it a time series object
 transpose<-t(data)
 
-
 #Let's create a place where we'll store our models
-
-models<-vector("list",length)
+consistent_models<-vector("list",length)
 
 #And now run the code to create all of the models
-
-start<-Sys.time()
-
 for (i in 1:length){
-        
- models[[i]] <-forecast(
+ consistent_models[[i]] <-forecast(
                       auto.arima(
                                   ts(transpose[,i],
                                      start=1,
@@ -390,38 +373,89 @@ for (i in 1:length){
                       h=1)
 }
 
-finish<-Sys.time()
-print(finish-start)
+#Now lets make a for loop that will tease out the predictions we just made for each customer
+fitted_arima<-as.vector(c(1:length))
+
+for (i in 1:length){
+fitted_arima[i]<-as.numeric(consistent_models[[i]]$mean)
+}
+
+consistent_actuals$fitted<-fitted_arima
+
+#-------------------------------------------------------------
+#And now do the modelling for Erratic....
+
+data<-erratic_ts
+length<-nrow(data)
+
+#Let's take the transpose so that we can make it a time series object
+transpose<-t(data)
+
+#Let's create a place where we'll store our models
+erratic_models<-vector("list",length)
+
+#And now run the code to create all of the models
+for (i in 1:length){
+ erratic_models[[i]] <-forecast(
+                      auto.arima(
+                                  ts(transpose[,i],
+                                     start=1,
+                                     end=24)),
+                      h=1)
+}
 
 #Now lets make a for loop that will tease out the predictions we just made for each customer
 fitted_arima<-as.vector(c(1:length))
 
 for (i in 1:length){
-fitted_arima[i]<-as.numeric(models[[i]]$mean)
+fitted_arima[i]<-as.numeric(erratic_models[[i]]$mean)
 }
 
-actuals$fitted<-fitted_arima
-#Let's calculate the mean absolute error and RMSE
-mean(abs(actuals$aug_2016-fitted_arima))
-mean(actuals$aug_2016)
+erratic_actuals$fitted<-fitted_arima
 
-arima_residuals<-ggplot(actuals, aes(x=fitted))+
-  geom_point(aes(y=aug_2016))+
+#And now we're across the finish line:
+finish<-Sys.time()
+print(finish-start)
+
+```
+
+```{r ARIMA Measures of Accuracy, echo=FALSE}
+
+#Let's calculate the measures of accuracy for consistent customers
+consistent_actuals%>%
+  print(mae(aug_2016, fitted))%>%
+  print(rmse(aug_2016, fitted))%>%
+  print(adj_mape(aug_2016, fitted))
+
+
+# And now for the erratic customers
+erratic_actuals%>%
+  print(mae(aug_2016, fitted))%>%
+  print(rmse(aug_2016, fitted))%>%
+  print(adj_mape(aug_2016, fitted))
+
+```
+
+```{r, ARIMA Residual Plots, echo=TRUE}
+arima_residuals_erratic<-ggplot(erratic_actuals, aes(x=fitted, y=aug_2016))+
+  geom_point(alpha=0.2, color="Blue")+
   coord_cartesian(xlim=c(0,4000),ylim=c(0,4000))+
   labs(x="Fitted Value",
         y= "Actual Spend",
-       title= "Residual Plot for Consistent Customers")+
-  theme_economist(base_size=15)
+       title= "Residual Plot for Erratic Customers")+
+  theme_bw(base_size=15)
 
-arima_residuals
+arima_residuals_erratic
 
-#Adjusted MAPE because mape function wont work for observatiosn where actual is zero (undefined solution)
-Adj_mape = mean(abs(actuals$aug_2016-fitted_arima))/mean(actuals$aug_2016)
-print(Adj_mape)
+arima_residuals_consistent<-ggplot(consistent_actuals, aes(x=fitted, y=aug_2016))+
+  geom_point(alpha=0.2, color="Blue")+
+  coord_cartesian(xlim=c(0,4000),ylim=c(0,4000))+
+  labs(x="Fitted Value",
+        y= "Actual Spend",
+       title= "Residual Plot for Erratic Customers")+
+  theme_bw(base_size=15)
 
-
-rmse(actuals$aug_2016, fitted_arima)
-
+arima_residuals_consistent
 
 ```
 
@@ -448,24 +482,28 @@ train_data_set <- scene_data %>%
     -Sharpe
   )
 
+train_data_set <- train_data_set %>% mutate_if(is.character, as.factor)
+
 
 library(caret)
 
 #Random Forest stuff from Blue Jays
-kfolds=5
-search.length=10
+kfolds=3
+search.length=5
 data<-train_data_set
 
 cvCtrl <- trainControl(method="cv",
                        number=kfolds)
 
+start<-Sys.time()
 forest <- train(aug_2016~., 
-                method="ranger",
+                method="rf",
                 trControl=cvCtrl,
                 data=data,
                 importance=TRUE,
                 tuneLength=search.length)
-
+finish<-Sys.time()
+print(finish-start)
 
 
 forest_residuals<-data.frame(cbind(data$aug_2016, forest$finalModel$predicted))
@@ -535,22 +573,47 @@ scene_data <- as.h2o(scene_data)
 
 ```{r,echo = FALSE, message = FALSE, warning = FALSE}
 
-###Below is the code for creating monthly variables for spend by each customer. This code will not work in sparklyr or on an h2o class data.table so we need to figure out a new way to integrate time series effects
+#grouping by member key and arranging seq entry num in desc order so as to have the latest updated account entry
 
-# scene_data_lag<-scene_data%>%
-#   unite("MoYear", mo_clndr_code, anul_clndr_code, sep="")
-# scene_data_lag<-spread(scene_data_lag, MoYear, txn_amt, fill= 0)
+scene_dim1 <- scene_mbr_dim %>% 
+  group_by(scene_mbr_key,scene_mbr_seq_num) %>%
+  arrange(desc(scene_mbr_seq_num))%>%
+  ungroup() 
+ scene_dim2 <- scene_mbr_dim %>% 
+  group_by(scene_mbr_key) %>%
+  arrange(desc(scene_mbr_seq_num)) %>%
+  summarise(scene_mbr_seq_num = max(scene_mbr_seq_num))
+#an alternative to distinct function to delete duplicate entries  
+scene_mbr_dim <- inner_join(scene_dim2,scene_dim1)
+
+#okay now lets join it onto the demo data.
+
+scene_columns <- c("scene_mbr_key",
+                   "scene_mbr_seq_num",
+                   "eff_from_tmstamp",
+                   "eff_to_tmstamp","brth_dt",
+                   "psnl_post_cd","psnl_prov_state_cd","psnl_city",  
+                   "suspended_f",
+                   "gndr_desc",
+                   "prefrd_loctn_desc",
+                   "email_prefnc_desc",
+                   "ed_lvl_desc",
+                   "prefrd_show_tm_desc",
+                   "num_of_hh_pple_desc",
+                   "movie_gng_frq_ref_desc",
+                   "mrtl_stat_desc",
+                   "lang_desc",
+                   "scene_acty_stat")
+
+# Aggregating transaction amount by the month, year and trans type
+
+# and only keeping rows where transaction amount between 0 and 10,000 
+# Transaction amounts >10,000 are considered as outliers)
+# We are only interested in customer spending therefore ignoring negative amounts
+# however, team is aware of reversal transactions and will take care of it in the
+# final model.
 
 
-
-#Now we'll try it on an h2o data table
-
-# scene_long<-scene_data%>%
-#   select(one_of(c("scene_mbr_key", "anul_clndr_code", "txn_amt")))
-
-# scene_long<-as.h2o(scene_long)
-# 
-# h2o.pivot(x= scene_long, index= "scene_mbr_key", column = "anul_clndr_code", value= "txn_amt")
 
 
 ```
@@ -673,3 +736,29 @@ best_glm_model_id <- glm_grid@model_ids[[1]]
 m_glm_tuned <- h2o.getModel(best_glm_model_id)
 
 ```
+
+```{r, ARIMA Modelling using APPLY, echo=TRUE}
+
+
+
+
+for (i in 1:length){
+ erratic_models[[i]] <-forecast(
+                      auto.arima(
+                                  ts(transpose[,i],
+                                     start=1,
+                                     end=24)),
+                      h=1)
+}
+
+#Now lets make a for loop that will tease out the predictions we just made for each customer
+fitted_arima<-as.vector(c(1:length))
+
+for (i in 1:length){
+fitted_arima[i]<-as.numeric(erratic_models[[i]]$mean)
+}
+
+
+
+```
+
