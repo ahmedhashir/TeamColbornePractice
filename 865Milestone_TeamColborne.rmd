@@ -98,6 +98,31 @@ scene_dim1 <- scene_mbr_dim %>%
 #an alternative to distinct function to delete duplicate entries  
 scene_mbr_dim <- inner_join(scene_dim2,scene_dim1)
 dim(scene_mbr_dim)
+#Plot for Average monthly spend by Age
+library(ggthemes) 
+spend_age_plot <- scene_mbr_dim %>%
+                  inner_join(y=scene_pt_fact_filter, by = "scene_mbr_key")
+#Creating Age variables from the birth year info
+spend_age_plot<- spend_age_plot %>% 
+  mutate(Age = 2017 - brth_dt)%>%
+  select(-brth_dt)
+#Considering only till age 70 
+spend_age_plot <- spend_age_plot%>%
+                  select(one_of(c("scene_mbr_key",
+                   "txn_amt",
+                   "mo_clndr_code",
+                   "Age")))%>%
+                    filter(Age<70)
+spend_age_plot <- spend_age_plot %>%
+              group_by(mo_clndr_code,Age)%>%
+              summarise(avg_amt = mean(txn_amt))
+#Plot
+ggplot(spend_age_plot, aes(x=Age,y=avg_amt))+
+  geom_point(alpha = 0.5,color = "blue")+
+  labs(x="Age", y="Average monthly spend",
+        title = "Average Monthly Spend by Age")+
+  theme_bw(base_size =15)
+
 # Aggregating transaction amount by the month, year and trans type
 
 #Initialize the dataframe that we'll use to create the lagged variables
