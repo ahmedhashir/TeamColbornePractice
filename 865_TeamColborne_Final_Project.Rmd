@@ -70,7 +70,7 @@ stats <- scene_pt_fact %>%
   filter(is.na(txn_amt)==FALSE) %>%
   summarise(sd = sd(txn_amt),
             mean = mean(txn_amt),
-            upper_bound = mean + 12*sd)
+            upper_bound = mean + 4*sd)
 
 #First let's filter for transactions that are between 0 and 10k, based on the upper bound stat we computed earlier
 scene_pt_fact_filter <- scene_pt_fact %>%
@@ -255,7 +255,7 @@ The following code chunk presents the skeleton for the H2O models.
 
 #Initialize H2O cluster with MobaXterm and file from Jeff
 
-h2o.init(ip = "192.168.30.21", port = 46070)
+h2o.init(ip = "192.168.30.21", port = 60759)
 
 h2o_data <- as.h2o(scene_data)
 
@@ -295,7 +295,7 @@ g_rf <- h2o.grid("randomForest",
                    ntrees = 120,
                    max_depth = 60,
                    min_rows = 2,
-                   mtries = 5)
+                   mtries = 5),
                  x = x, 
                  y = y, 
                  training_frame = train, 
@@ -325,6 +325,41 @@ gbm_grid <- h2o.getGrid(g_gbm@grid_id, sort_by = "RMSE", decreasing = FALSE)
 best_gbm_model_id <- gbm_grid@model_ids[[1]]
 m_gbm_tuned <- h2o.getModel(best_gbm_model_id)
 gbm_perf_t <- h2o.performance(m_gbm_tuned, test)
+
+
+rf_predictions <- as.data.frame(predict(m_rf_tuned, test))
+gbm_predictions <- as.data.frame(predict(m_gbm_default, test))
+dl_predictions <- as.data.frame(predict(m_dl_default, test))
+
+dl_predictions$model <- "NN"
+rf_predictions$model <- "RF"
+gbm_predictions$model <- "GBM"
+
+test_frame <- as.data.frame(test)
+
+dl_predictions$actual <- test_frame$aug_2016
+rf_predictions$actual <- test_frame$aug_2016
+gbm_predictions$actual <- test_frame$aug_2016
+
+all_predictions <- rbind(dl_predictions, gbm_predictions, rf_predictions)
+all_predictions$abs_error <- abs(all_predictions$predict-all_predictions$actual)
+
+g <- ggplot(all_predictions, aes(y = actual, 
+                                 x = predict, 
+                                 col =model))+
+  geom_point(col="black", alpha = 0.125)+
+  geom_smooth(level = 0.9999) +
+    coord_cartesian(xlim=c(0, 6000),ylim=c(0,6000)) +
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Fitted Values ($)",
+       y = "Actual Values ($)",
+       title = "Model Comparison for Top Three Models")+
+  theme_bw(base_size=15)
+
+
+g
+
+
 
 
 ```
