@@ -27,6 +27,9 @@ library(data.table)
 library(sparklyr)
 library(rsparkling)
 library(h2o)
+library(ggthemes)
+library(forecast)
+
 
 # NOTE: Comment out either Spark or R script depending on where you'd like to run. The Spark cluster has been riddled with problems, this will allow us to iterate quicker.
 
@@ -173,7 +176,7 @@ scene_joined <- scene_pt_fact_filter %>%
 scene_joined <- scene_pt_fact_filter %>%
   filter(time_lvl_st_dt == "2015-09-01")%>%
   group_by(scene_mbr_key) %>%
-  summarise(sept_2015 = sum(txn_amt)) %>%
+  summarise(sep_2015 = sum(txn_amt)) %>%
   right_join(y=scene_joined, by="scene_mbr_key")
 
 #August 2015 Lagged Spending
@@ -251,11 +254,11 @@ As a result, we have decided to augment our business insights with models that h
 
 The following code chunk presents the skeleton for the H2O models. 
 
-```{r models}
+```{r h2o modelling with big dataset}
 
 #Initialize H2O cluster with MobaXterm and file from Jeff
 
-h2o.init(ip = "192.168.30.21", port = 46070)
+h2o <- h2o.init(ip="192.168.30.21", port=58035)
 
 h2o_data <- as.h2o(scene_data)
 
@@ -268,6 +271,11 @@ splits <- h2o.splitFrame(h2o_data, c(0.6,0.2))
 train <- splits[[1]]
 valid <- splits[[2]]
 test <- splits[[3]]
+
+#
+test_default<-as.data.frame(test)
+mean(test_default$aug_2016)
+369/800
 
 y <- "aug_2016"  
 x <- names[names(h2o_data)!=y]
@@ -295,7 +303,7 @@ g_rf <- h2o.grid("randomForest",
                    ntrees = 120,
                    max_depth = 60,
                    min_rows = 2,
-                   mtries = 5)
+                   mtries = 5),
                  x = x, 
                  y = y, 
                  training_frame = train, 
@@ -366,26 +374,445 @@ grid.arrange(gbm_res, rf_res, ncol=1,nrow=2,
 
 ```
 
-```{r,echo = FALSE, message = FALSE, warning = FALSE}
-###Plots of txn_amt to indicate outliers
+```{r Adding Extra Lagged Variables for ARIMA, echo = TRUE}
 
-#boxplot of txn_amt for the original transaction data
-ggplot(scene_pt_fact, aes(anul_clndr_code,txn_amt))+
-  geom_boxplot(outlier.colour = "red", outlier.shape = 1)+
-  labs(x = "year",
-         y = "transaction amount",
-         title = "Plot for the original transaction data")
- 
+#ARIMA generally require more observations to train, so let's add some more variables to the scene_joined dataset
 
-#boxplot of txn_amt after filtering transaction data
-ggplot(scene_pt_fact_filter, aes(anul_clndr_code,txn_amt))+
-  geom_boxplot(outlier.colour = "red", outlier.shape = 1)+ 
-  labs(x = "year",
-         y = "transaction amount",
-         title = "Plot for the filtered transaction data")
+#Note: collaborative coding is hard.
 
-#histogram of txn_amt 
-ggplot(scene_pt_fact_filter, aes(txn_amt))+
-  geom_histogram(binwidth = 300)+
-  labs(x = "transaction amount",
-         title = "Histogram for transaction amount")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2015-07-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(jul_2015=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2015-06-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(jun_2015=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2015-05-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(may_2015=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+   filter(time_lvl_st_dt == "2015-04-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(apr_2015=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2015-03-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(mar_2015=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2015-02-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(feb_2015=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2015-01-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(jan_2015=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2014-12-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(dec_2014=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2014-11-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(nov_2014=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2014-10-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(oct_2014=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+scene_joined<-scene_pt_fact_filter%>%
+  filter(time_lvl_st_dt == "2014-09-01")%>%
+  group_by(scene_mbr_key)%>%
+  summarise(sep_2014=sum(txn_amt))%>%
+  right_join(y=scene_joined, by="scene_mbr_key")
+
+
+```
+
+```{r Selecting Lagged Variables for ARIMA, echo=FALSE}
+
+scene_joined[is.na(scene_joined)]<-0
+
+member_key<-scene_joined$scene_mbr_key
+
+scene_joined<-scene_joined%>%
+  select(one_of(
+        "sep_2014",
+         "oct_2014",
+         "nov_2014", 
+         "dec_2014",   
+         "jan_2015",     
+         "feb_2015", 
+         "mar_2015",
+         "apr_2015",    
+         "may_2015",   
+         "jun_2015",   
+         "jul_2015",  
+         "aug_2015",  
+         "sep_2015",     
+         "oct_2015",   
+         "nov_2015",   
+         "dec_2015",   
+         "jan_2016",
+         "feb_2016",
+         "mar_2016",
+         "apr_2016",    
+         "may_2016",
+         "jun_2016",   
+         "jul_2016",   
+         "aug_2016"))
+
+scene_joined<-scene_joined %>% 
+  mutate(mean = apply(scene_joined, MARGIN=1, FUN=mean))
+
+scene_joined<-scene_joined %>%
+  mutate(sd=apply(scene_joined, MARGIN = 1, FUN=sd))
+
+scene_joined<-scene_joined %>%
+  mutate(Sharpe=mean/sd)
+
+#now we need to bind the member keys back to this dataframe so that we can split them later
+scene_joined$scene_mbr_key <- member_key
+  
+```
+
+```{r Volatility in Customers and Plots, echo=TRUE}
+
+
+#Let's make some plots to throw in the presentation
+
+sharpe_hist<-ggplot(scene_joined, aes(Sharpe))+
+  geom_histogram(color="Black",fill="Blue",alpha=0.5)+
+                 labs(x="Sharpe Ratio (Mean Spend / Standard Deviation in Spend)",
+                      y= "Frequency",
+                      title= "Distribution of Customer Sharpe Ratio")+
+      coord_cartesian(xlim=c(0,10),ylim=c(0,2000))+
+  theme_bw(base_size=15)
+
+sharpe_hist
+
+sharpe_scatter<-ggplot(scene_joined, aes(x=sd, y=mean))+
+  geom_point(alpha=0.1, color="Blue")+
+  coord_cartesian(xlim=c(0,3000),ylim=c(0,3000))+
+  labs(x="Standard Deviation of Spend",
+        y= "Average Monthly Spend",
+       title= "Customer Spend for Past 24 Months")+
+  theme_bw(base_size=15)
+
+sharpe_scatter
+
+#Percentage that are "Consistent"
+nrow(filter(scene_joined, Sharpe>2))/nrow(scene_joined)
+
+#Percentage that are "Erratic"
+nrow(filter(scene_joined, Sharpe<2))/nrow(scene_joined)
+
+```
+
+```{r, Create Dataframes for Consistent and Erratic}
+
+#Start the clock....
+start<-Sys.time()
+
+#Let's create a subset of customers who are 'reliable spenders' and see if we can predict them easier
+consistent <- scene_joined %>%
+  filter(Sharpe>2)
+
+#And do the same for erratic spenders
+erratic <- scene_joined %>%
+  filter(Sharpe<2)
+
+#Create a dataframe on which we'll bind our forecasted spend for aug_2016 for comparing later.
+consistent_actuals <- consistent %>%
+  select(aug_2016)
+
+#and do the same for erratic
+erratic_actuals <- erratic %>%
+  select(aug_2016)
+
+#And now get rid of all the excess columns so that it's a true time series array
+consistent_ts <- consistent %>%
+  select(-scene_mbr_key,
+        -aug_2016,
+         -mean,
+         -sd,
+         -Sharpe)
+
+#and the same for erratic...
+erratic_ts <- erratic %>%
+                select(-scene_mbr_key,
+                       -aug_2016,
+                       -mean,
+                       -sd,
+                       -Sharpe)
+
+```
+
+```{r, ARIMA Modelling, echo=FALSE}
+#And now do the modelling for consistent
+
+data <- consistent_ts
+length <- nrow(data)
+
+#Let's take the transpose so that we can make it a time series object
+transpose <- t(data)
+
+#Let's create a place where we'll store our models
+consistent_models <- vector("list",length)
+
+#And now run the code to create all of the models
+for (i in 1:length){
+ consistent_models[[i]] <- forecast(
+                                    auto.arima(
+                                                ts(transpose[,i],
+                                                   start=1,
+                                                   end=24)),
+                                   h=1)
+                    }
+
+#Now lets make a for loop that will tease out the predictions we just made for each customer
+fitted_arima <- as.vector(c(1:length))
+
+for (i in 1:length){
+fitted_arima[i] <- as.numeric(consistent_models[[i]]$mean)
+}
+
+consistent_actuals$fitted <- fitted_arima
+
+#-------------------------------------------------------------
+#And now do the modelling for Erratic....
+
+data <- erratic_ts
+length <- nrow(data)
+
+#Let's take the transpose so that we can make it a time series object
+transpose <- t(data)
+
+#Let's create a place where we'll store our models
+erratic_models <- vector("list",length)
+
+#And now run the code to create all of the models
+for (i in 1:length){
+ erratic_models[[i]] <- forecast(
+                                auto.arima(
+                                            ts(transpose[,i],
+                                               start=1,
+                                               end=24)),
+                                 h=1)
+                    }
+
+#Now lets make a for loop that will tease out the predictions we just made for each customer
+fitted_arima <- as.vector(c(1:length))
+
+for (i in 1:length){
+                    fitted_arima[i]<-as.numeric(erratic_models[[i]]$mean)
+                    }
+
+erratic_actuals$fitted <- fitted_arima
+
+#And now we're across the finish line:
+finish <- Sys.time()
+print(finish-start)
+
+```
+
+```{r ARIMA Measures of Accuracy, echo=FALSE}
+
+#Let's calculate the measures of accuracy for consistent customers
+consistent_actuals%>%
+  print(mae(aug_2016, fitted))%>%
+  print(rmse(aug_2016, fitted))%>%
+  print(adj_mape(aug_2016, fitted))
+
+# And now for the erratic customers
+erratic_actuals%>%
+  print(mae(aug_2016, fitted))%>%
+  print(rmse(aug_2016, fitted))%>%
+  print(adj_mape(aug_2016, fitted))
+```
+
+```{r, ARIMA Residual Plots, echo=TRUE}
+rf_residuals_consistent<-ggplot(rf_preds_consistent, aes(x=predict, y=actual))+
+  geom_point(alpha=0.5, color="Blue")+
+  coord_cartesian(xlim=c(0,4000),ylim=c(0,4000))+
+  labs(x="Fitted Values ($)",
+        y= "Actual Values ($)",
+       title= "Residual Plot for Consistent Customers")+
+  geom_abline(intercept=0, slope=1)+
+  theme_bw(base_size=15)
+
+rf_residuals_consistent
+
+rf_residuals_erratic<-ggplot(rf_preds_erratic, aes(x=predict, y=actual))+
+  geom_point(alpha=0.3, color="Blue")+
+  coord_cartesian(xlim=c(0,250),ylim=c(0,250))+
+  labs(x="Fitted Values ($)",
+        y= "Actual Values ($)",
+       title= "Residual Plot for Erratic Customers")+
+  geom_abline(intercept=0, slope=1)+
+  theme_bw(base_size=15)
+
+rf_residuals_erratic
+
+```
+
+```{r, Join Dataframes on Demographic data}
+
+#First get rid of the extra info that we used to split the datasets
+consistent <- consistent %>% 
+  select(
+          -mean,
+          -sd,
+          -Sharpe
+        )
+
+#And do the same for the erratic dataset
+erratic <- erratic %>% 
+  select(
+          -mean,
+          -sd,
+          -Sharpe
+        )
+
+#Join Customer Dimension Data with scene_data
+
+consistent_demo <- scene_mbr_dim%>%
+                  select(one_of(scene_columns))%>%
+              right_join(consistent, by = "scene_mbr_key")
+
+#And the same for erratic customers
+erratic_demo <- scene_mbr_dim%>%
+                  select(one_of(scene_columns))%>%
+              right_join(erratic, by = "scene_mbr_key")
+
+
+#Now let's get rid of all the bullshit that we don't need for the random forest
+consistent_demo <- consistent_demo %>%
+  select(-scene_mbr_key, 
+         -scene_mbr_seq_num, 
+         -eff_from_tmstamp, 
+         -eff_to_tmstamp, 
+         -psnl_post_cd, 
+         -prefrd_loctn_desc
+         )
+
+#ANNNNND the same for the erratic dataset
+erratic_demo <- erratic_demo %>%
+  select(-scene_mbr_key, 
+         -scene_mbr_seq_num, 
+         -eff_from_tmstamp, 
+         -eff_to_tmstamp, 
+         -psnl_post_cd, 
+         -prefrd_loctn_desc
+         )
+```
+
+```{r Model on the data subsets, echo=FALSE}
+
+#Initialize H2O cluster with MobaXterm and file from Jeff
+h2o.init(ip = "192.168.30.21", port = 23086)
+
+h2o_data <- as.h2o(consistent_demo)
+
+names <- names(h2o_data)
+char_names <- names[is.character(h2o_data[,names])]
+
+h2o_data[,char_names] <- as.factor(h2o_data[,char_names])
+
+splits <- h2o.splitFrame(h2o_data, c(0.6,0.2))
+train <- splits[[1]]
+valid <- splits[[2]]
+test <- splits[[3]]
+
+y <- "aug_2016"  
+x <- names[names(h2o_data)!=y]
+
+
+
+g_rf <- h2o.grid("randomForest",
+                 hyper_params = list(
+                   ntrees = 120,
+                   max_depth = 60,
+                   min_rows = 2,
+                   mtries = c(5,6)),
+                 x = x, 
+                 y = y, 
+                 training_frame = train, 
+                 validation_frame = valid)
+
+rf_grid <- h2o.getGrid(g_rf@grid_id, sort_by = "RMSE", decreasing = FALSE)
+best_rf_model_id <- rf_grid@model_ids[[1]]
+consistent_rf <- h2o.getModel(best_rf_model_id)
+
+print(h2o.performance(consistent_rf, test))
+
+rf_preds_consistent <- as.data.frame(predict(consistent_rf, test))
+test_consistent_frame<-as.data.frame(test)
+rf_preds_consistent$actual<-test_consistent_frame$aug_2016
+
+404/mean(test$aug_2016)
+
+
+#now let's do the same thing for the erratic dataset
+
+h2o_data <- as.h2o(erratic_demo)
+
+names <- names(h2o_data)
+char_names <- names[is.character(h2o_data[,names])]
+
+h2o_data[,char_names] <- as.factor(h2o_data[,char_names])
+
+splits <- h2o.splitFrame(h2o_data, c(0.6,0.2))
+train <- splits[[1]]
+valid <- splits[[2]]
+test <- splits[[3]]
+
+y <- "aug_2016"  
+x <- names[names(h2o_data)!=y]
+
+g_rf <- h2o.grid("randomForest",
+                 hyper_params = list(
+                   ntrees = 120,
+                   max_depth = 60,
+                   min_rows = 2,
+                   mtries = 6),
+                 x = x, 
+                 y = y, 
+                 training_frame = train, 
+                 validation_frame = valid)
+
+rf_grid <- h2o.getGrid(g_rf@grid_id, sort_by = "RMSE", decreasing = FALSE)
+best_rf_model_id <- rf_grid@model_ids[[1]]
+erratic_rf <- h2o.getModel(best_rf_model_id)
+
+print(h2o.performance(erratic_rf, test))
+
+rf_preds_erratic <- as.data.frame(predict(erratic_rf, test))
+
+test_erratic_frame<-as.data.frame(test)
+rf_preds_erratic$actual<-test_erratic_frame$aug_2016
+
+355/mean(test$aug_2016)
+
+```
