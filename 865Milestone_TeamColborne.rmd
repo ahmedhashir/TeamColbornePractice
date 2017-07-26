@@ -52,7 +52,7 @@ library(h2o)
 # print(finish-start)
 
 #R script
-in_path_r = '/global/project/queens-mma/scene-csv/sample0003/clean/'
+in_path_r = '/global/project/queens-mma/scene-csv/sample003/clean/'
 
 
 scene_mbr_dim <-fread(paste(in_path_r, 'scene_mbr_dim.csv', sep=""), sep=",")
@@ -84,7 +84,6 @@ The working code for joining the Spark tables is shown below
 
 ```{r}
 #grouping by member key and arranging seq entry num in desc order so as to have the latest updated account entry
-
 start<-Sys.time()
 
 scene_dim1 <- scene_mbr_dim %>% 
@@ -133,7 +132,7 @@ scene_loyalty_pt <- scene_loyalty_pt %>%
             regular_pt = sum(ifelse(txn_tp_2=="regular",pt, 0))
             )%>% ungroup()
 
-
+mythri <- scene_loyalty_pt
 #Now copy and paste the slightly altered code for each month and join it onto the original dataframe
 
 scene_joined<-scene_loyalty_pt%>%
@@ -371,39 +370,56 @@ The following code chunk presents the skeleton for the H2O models.
 ```{r}
 # For the purposes of this example, we are assuming the final data frame will be held in a Spark dataframe called scene_data.
 
-######## Following Skeleton Code may not completely run as of now #######
+final_data <- scene_data
 
 h2o.init(ip = "192.168.30.21", port = 52571)
+         
+######## Following Skeleton Code may not completely run as of now #######
 
-scene_data <- as.h2o(scene_data)
+model_data <- final_data %>%
+  select(-psnl_post_cd,
+         -psnl_city,
+         -prefrd_loctn_desc)
 
+model_data <- final_data %>%
+  select(aug_2016,
+         jul_2016,
+         jun_2016,
+         may_2016,
+         apr_2016,
+         mar_2016,
+         feb_2016,
+         psnl_prov_state_cd,
+         Age)
 
-# Convert factor variables
-# Note: This is not possible in sparklyr, but works perfectly in H2O!
+h2o_data <- as.h2o(model_data)
 
-names <- names(scene_data)
-char_names <- names[is.character(scene_data[,names])]
+names <- names(h2o_data)
+char_names <- names[is.character(h2o_data[,names])]
 
+h2o_data[,char_names] <- as.factor(h2o_data[,char_names])
 
-scene_data[,char_names] <- as.factor(scene_data[,char_names])
-
-# Similar to caret, h2o givesus an easy way to build training / testing sets
-
-# To get a validation dataset, we simply enter 0.6, 0.3. The remaining 0.1 is implicitly defined.
-
-# Given that we're planning on using lagged variables, we're hoping the time nature of the prediction problem won't be an issue. However, we may need to find alternative ways to split our data if it doesn't work.
-
-splits <- h2o.splitFrame(scene_data, 0.8)
+splits <- h2o.splitFrame(h2o_data, 0.8)
 train <- splits[[1]]
 test <- splits[[2]]
 
-
-
-# Tell h2o which are response variables and which are features
 y <- "aug_2016"  
-x <- names[names(scene_data)!=y]
+x <- names[names(h2o_data)!=y]
 
-#& names(scene_data)!="aug_2016.x"] <--- wtf is this?
+m_rf_default <- h2o.randomForest(x, y, train, nfolds = 2, model_id = "RF_defaults")
+m_gbm_default <- h2o.gbm(x, y, train, nfolds = 10, model_id = "GBM_defaults")
+m_dl_default <- h2o.deeplearning(x, y, train, nfolds = 2, model_id = "DL_defaults")
+
+
+
+# Show the performance on the test set
+h2o.performance(m_rf_default, test)
+h2o.performance(m_gbm_default, test)
+h2o.performance(m_dl_default, test)
+
+summary_rf <- summary(m_rf_default)
+vars <- as.factor(summary_rf$variable[1:15])
+percents <- summary_rf$percentage[1:15]
 
 ```
 
@@ -421,8 +437,18 @@ m_rf_default <- h2o.randomForest(x, y, train, nfolds = 2, model_id = "RF_default
 
 # Show the performance on the test set
 h2o.performance(m_rf_default, test)
-summary(m_rf_default)
 
+
+summary_rf <- summary(m_rf_default)
+vars <- as.factor(summary_rf$variable[1:15])
+percents <- summary_rf$percentage[1:15]
+
+df <- data.frame(variables = vars, values = percents)
+print(df)
+
+```
+
+```{r}
 # Here's how we plan to do parameter tuning!
 g_rf <- h2o.grid("randomForest",
               hyper_params = list(
